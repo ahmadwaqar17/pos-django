@@ -1,11 +1,55 @@
-.env
-.DS_Store
-*.sqlite
-*.sqlite3
-*.pyc
-__pycache__
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+*.whl
+
+# Virtual Environment
 venv/
+ENV/
 env/
-postgres_data/
-!.env.sample
+.env
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+static/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.sample
+
+# Docker
+docker-compose.override.yml
+
+# Screenshots
+screenshots/
+
+# Images for display
+images4display/
+
+# Migration files (optional - uncomment if you want to ignore)
+# */migrations/
+
+# Compiled files
+*.pyc
