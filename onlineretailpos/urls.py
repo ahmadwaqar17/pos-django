@@ -50,6 +50,7 @@ urlpatterns = [
 
         # Register URLs
         path('register/', views.register, name="register"),
+        path('register/api/products/', views.api_products, name="api_products"),
         path('register/ProductNotFound/', views.register, name="ProductNotFound"),
         path('register/cart_clear/', cart_views.cart_clear, name='cart_clear'),
         path('register/returns_transaction/', transaction_views.returnsTransaction, name='returns_transaction'),

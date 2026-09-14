@@ -1,115 +1,418 @@
-{% load static %}
 <!DOCTYPE html>
-<html >
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    
-        <meta name="robots" content="noindex,nofollow" />
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow" />
+<title>Customer display</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEEE9;
+    --surface:#FFFFFF;
+    --ink:#14201A;
+    --ink-soft:#5C675F;
+    --ink-faint:#8D968F;
+    --rule:#D5D8D0;
+    --money:#0B6B3A;
+    --money-wash:#E4F0E7;
+    --flag:#B33A1E;
 
-        <title>Retail Display | Online Retail POS</title>
-        <link href="{% static 'css/sb-admin-2.min.css' %}" rel="stylesheet">
-        
-        
-    </head>
-    <body  class="ml-2" style="background-color:rgb(255, 255, 255);position: fixed; top:0px; bottom:0px; left:0px; right:0px;height: 100vh">
-        
-        <div class="row" style="height: 100vh;">
-            <div id="block1" class="col-md-6 p-0 pl-3 pr-3 m-0" style="height: 100%; border-right: 1px solid #000;">
-                <div class="container h3 text-center text-uppercase text-primary pt-4 mt-1" style="height: 8%;">
-                    Welcome to {{ store_name }}
-                </div>
-                <hr style="border-color: blue;">
-                <div class="row mt-0 pt-0" style="width: 100%; height: 75%;">
-                    <div class="col-auto ml-3 pr-5 pl-5" id="retailOutput" style="margin-bottom: 0%; margin-top: 3%; width: 100%; height: 100%;"></div>
-                </div>
-                <hr>
-                <div id="outside" class="container text-center" style="width: 100%; height: 10%;">
-                    <div class="h4 text-dark pb-0 mb-0" id="clock" style="float: center;"></div>
-                    This page automatically updates every 2 seconds. Thank you!!
-                </div>
-            </div>
+    --pad: clamp(20px, 2.2vw, 44px);
+    --step-0: clamp(13px, .95vw, 19px);
+    --step-1: clamp(17px, 1.35vw, 27px);
+    --step-2: clamp(22px, 1.9vw, 38px);
+    --step-3: clamp(40px, 5.2vw, 104px);
+  }
 
-            <div id="block2" class="col-md-6 p-0 pl-5 pr-5 m-0" style="height: 100vh; border-right: 1px solid #000;">
-                <div style="display: flex; justify-content: center; align-items: center; height: 100%; text-align: center; width: 100%;">
-                    {% for image in display_images %}
-                    <img class="images_block2" src="{% static image %}" style="max-width: 100%; max-height: 90%;" alt="Image">
-                    {% endfor %}
-                </div>
-            </div>
-        
-            <div id="block3" class="col-md-6 p-0 pl-5 pr-5 m-0" style="height: 100vh;">
-                <div style="display: flex; justify-content: center; align-items: center; height: 100%; text-align: center; width: 100%;">
-                    {% for image in display_images %}
-                    <img class="images_block3" src="{% static image %}" style="max-width: 100%; max-height: 90%;" alt="Image">
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        
-        
-    </body>
-    <script>
-        let xmlHttpReq = new XMLHttpRequest();
-        function updateScreen(){
-            xmlHttpReq.open("GET", window.location.pathname+"values/",false);
-            xmlHttpReq.send(null);
-            responseText = xmlHttpReq.responseText
-            if(responseText[1] == "d"){
-                document.getElementById("block2").style.display = "none"
-                document.getElementById("block1").style.display = "block"
-                document.getElementById("retailOutput").innerHTML = responseText
-                
-                // Scroll the table div to the bottom
-                var tableDiv = document.getElementById("table-body");
-                if (tableDiv) {
-                    tableDiv.scrollTop = tableDiv.scrollHeight; }
-            
-            }
-            else if(responseText == "IMAGE"){
-                setTimeout(function(){
-                    document.getElementById("block1").style.display = "none"
-                    document.getElementById("block2").style.display = "block";
-                }, 5000);
-            }
-            else{
-                document.getElementById("block2").style.display = "none"
-                document.getElementById("block1").style.display = "block"
-                document.getElementById("outside").innerHTML = ""
-                document.getElementById("retailOutput").innerHTML = "<div ><div class='container h1 pt-5 pb-3 text-center text-dark'>Please let cashier know to update this tab.</div><br><br>*Note: Cashier please reload this browser if that doesn't work then open customer screen again once logged in on the portal in same browser.</div>"
-            };
-            
-            document.getElementById( "clock" ).innerHTML = new Date().toLocaleString(); //object of date()
-        }
-        updateScreen();
-        const interval = setInterval(updateScreen,3000)
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Archivo","Helvetica Neue",Arial,sans-serif;
+    font-variant-numeric:tabular-nums;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
 
-        var myIndex2 = 0;
-        carousel2();
-        function carousel2() {
-            var i;
-            var x = document.getElementsByClassName("images_block2");
-            for (i = 0; i < x.length; i++) {
-            x[i].style.display = "none";
-            }
-            myIndex2++;
-            if (myIndex2 > x.length) {myIndex2 = 1}
-            x[myIndex2-1].style.display = "block";
-            setTimeout(carousel2, 7000); }
+  .screen{
+    height:100vh;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) clamp(280px, 26vw, 460px);
+    gap:var(--pad);
+    padding:var(--pad);
+  }
 
-        var myIndex3 = 1;
-        carousel3();
-        function carousel3() {
-            var i;
-            var x = document.getElementsByClassName("images_block3");
-            for (i = 0; i < x.length; i++) {
-            x[i].style.display = "none";
-            }
-            myIndex3++;
-            if (myIndex3 > x.length) {myIndex3 = 1}
-            x[myIndex3-1].style.display = "block";
-            setTimeout(carousel3, 8000); }
+  /* ---------- left: the live receipt ---------- */
+  .till{
+    background:var(--surface);
+    border-radius:4px;
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr) auto;
+    overflow:hidden;
+  }
 
-    </script>
+  .masthead{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:1rem;
+    padding:var(--pad) var(--pad) 0;
+  }
+  .store{
+    font-size:var(--step-1);
+    font-weight:700;
+    font-variation-settings:'wdth' 88;
+    letter-spacing:-.01em;
+  }
+  .clock{
+    font-size:var(--step-0);
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:.55em;
+  }
+  .pulse{
+    width:.5em;height:.5em;border-radius:50%;
+    background:var(--money);
+    flex:none;
+    animation:breathe 3s ease-in-out infinite;
+  }
+  .pulse.is-stale{background:var(--flag);animation:none}
+  @keyframes breathe{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* items feed upward from the bottom, like a till roll */
+  .roll{
+    align-self:end;
+    width:100%;
+    max-height:100%;
+    overflow-y:auto;
+    padding:0 var(--pad);
+    scrollbar-width:none;
+  }
+  .roll::-webkit-scrollbar{display:none}
+
+  .line{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:baseline;
+    column-gap:1.5rem;
+    row-gap:.15rem;
+    padding:clamp(10px,1vw,18px) 0 clamp(10px,1vw,18px) clamp(10px,.9vw,16px);
+    border-top:1px solid var(--rule);
+    position:relative;
+  }
+  .line:first-child{border-top:0}
+  .line .name{
+    font-size:var(--step-2);
+    font-weight:600;
+    font-variation-settings:'wdth' 92;
+    letter-spacing:-.015em;
+    line-height:1.1;
+    overflow-wrap:anywhere;
+  }
+  .line .amount{
+    font-size:var(--step-2);
+    font-weight:600;
+    font-variation-settings:'wdth' 92;
+    line-height:1.1;
+  }
+  .line .calc,
+  .line .sku{
+    grid-row:2;
+    font-size:var(--step-0);
+    color:var(--ink-soft);
+  }
+  .line .sku{text-align:right;color:var(--ink-faint)}
+
+  /* the item that just scanned — the one thing a customer actually checks */
+  .line.is-latest::before{
+    content:"";
+    position:absolute;
+    left:0;top:clamp(8px,.8vw,14px);bottom:clamp(8px,.8vw,14px);
+    width:4px;
+    background:var(--money);
+  }
+  .line.is-latest .name{font-weight:700}
+  .line.just-scanned{animation:land .9s ease-out}
+  @keyframes land{
+    from{background:var(--money-wash)}
+    to{background:transparent}
+  }
+
+  .empty{
+    align-self:center;
+    justify-self:start;
+    padding:0 var(--pad);
+    max-width:24ch;
+  }
+  .empty p{
+    font-size:var(--step-2);
+    font-weight:500;
+    font-variation-settings:'wdth' 90;
+    color:var(--ink-faint);
+    line-height:1.2;
+  }
+
+  /* ---------- the total ---------- */
+  .ledger{
+    border-top:2px solid var(--ink);
+    margin:clamp(14px,1.4vw,26px) var(--pad) 0;
+    padding:clamp(12px,1.2vw,22px) 0 var(--pad);
+  }
+  .adjustments{
+    display:grid;
+    gap:.35rem;
+    margin-bottom:clamp(10px,1vw,18px);
+    font-size:var(--step-1);
+    color:var(--ink-soft);
+  }
+  .adjustments div{
+    display:flex;justify-content:space-between;gap:1rem;
+  }
+  .adjustments .saving{color:var(--money)}
+  .adjustments:empty{display:none}
+
+  .total{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:1rem;
+    flex-wrap:wrap;
+  }
+  .total .label{
+    font-size:var(--step-1);
+    font-weight:500;
+    color:var(--ink-soft);
+  }
+  .total .label span{display:block;font-size:var(--step-0);color:var(--ink-faint)}
+  .total .figure{
+    display:flex;
+    align-items:baseline;
+    gap:.35em;
+    color:var(--money);
+  }
+  .total .cur{
+    font-size:var(--step-1);
+    font-weight:600;
+    color:var(--ink-soft);
+  }
+  .total .digits{
+    font-size:var(--step-3);
+    font-weight:800;
+    font-variation-settings:'wdth' 112;
+    letter-spacing:-.03em;
+    line-height:.85;
+  }
+
+  /* ---------- right: promotion ---------- */
+  .promo{
+    background:var(--surface);
+    border-radius:4px;
+    padding:var(--pad);
+    display:grid;
+    grid-template-rows:minmax(0,1fr) auto;
+    gap:clamp(14px,1.4vw,26px);
+  }
+  .figure{
+    position:relative;
+    min-height:0;
+    background:var(--paper);
+    border-radius:2px;
+    display:grid;
+    place-items:center;
+    padding:clamp(12px,1.2vw,24px);
+  }
+  .figure img,.figure svg{
+    max-width:100%;
+    max-height:100%;
+    width:auto;height:auto;
+    object-fit:contain;   /* never crops the product */
+  }
+  .flag{
+    position:absolute;
+    top:0;left:0;
+    background:var(--flag);
+    color:#fff;
+    font-size:var(--step-0);
+    font-weight:700;
+    font-variation-settings:'wdth' 88;
+    padding:.35em .7em;
+  }
+  .offer .kicker{
+    font-size:var(--step-0);
+    color:var(--ink-faint);
+    margin-bottom:.35em;
+  }
+  .offer h2{
+    font-size:var(--step-2);
+    font-weight:700;
+    font-variation-settings:'wdth' 90;
+    letter-spacing:-.015em;
+    line-height:1.05;
+    margin-bottom:.4em;
+  }
+  .offer .price{
+    display:flex;align-items:baseline;gap:.5em;flex-wrap:wrap;
+    font-size:var(--step-2);
+    font-weight:700;
+  }
+  .offer .was{
+    font-size:var(--step-1);
+    font-weight:400;
+    color:var(--ink-faint);
+    text-decoration:line-through;
+  }
+  .offer .terms{
+    margin-top:.6em;
+    font-size:var(--step-0);
+    color:var(--ink-soft);
+  }
+
+  @media (max-width:900px){
+    .screen{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+    .promo{grid-template-columns:auto minmax(0,1fr);grid-template-rows:none;align-items:center}
+    .figure{width:clamp(90px,26vw,160px);aspect-ratio:1}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<main class="screen">
+  <section class="till">
+    <header class="masthead">
+      <h1 class="store" id="storeName">Online Retail</h1>
+      <p class="clock"><span class="pulse" id="pulse"></span><span id="clock"></span></p>
+    </header>
+
+    <div class="roll" id="roll"></div>
+
+    <div class="ledger">
+      <div class="adjustments" id="adjustments"></div>
+      <div class="total">
+        <p class="label">Total<span id="count">No items yet</span></p>
+        <p class="figure"><span class="cur">PKR</span><span class="digits" id="total">0.00</span></p>
+      </div>
+    </div>
+  </section>
+
+  <aside class="promo">
+    <div class="figure" id="promoFigure">
+      <span class="flag" id="promoFlag" hidden></span>
+      <svg viewBox="0 0 120 160" role="img" aria-label="Paper coffee cup" fill="none">
+        <path d="M22 44h76l-9 98a10 10 0 0 1-10 9H41a10 10 0 0 1-10-9z" fill="#D9C9AE"/>
+        <path d="M38 52h6l-6 92h-5zM54 52h6l-4 92h-5zM70 52h6l-2 92h-5zM86 52h5l-1 92h-5z" fill="#C6B294"/>
+        <rect x="16" y="26" width="88" height="22" rx="8" fill="#F6F5F2"/>
+        <rect x="16" y="26" width="88" height="22" rx="8" stroke="#D5D8D0" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="offer">
+      <p class="kicker" id="promoKicker">Today at the counter</p>
+      <h2 id="promoTitle">Small coffee</h2>
+      <p class="price"><span id="promoPrice">PKR 420</span><span class="was" id="promoWas">PKR 550</span></p>
+      <p class="terms" id="promoTerms">Ask the cashier to add it before you pay.</p>
+    </div>
+  </aside>
+</main>
+
+<script>
+/* ------------------------------------------------------------------
+   Polls the Django JSON endpoint for live cart + promo state.
+------------------------------------------------------------------ */
+const POLL_URL = "/retail_display/values/";
+const POLL_MS  = 3000;
+
+const money = n => n.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const $ = id => document.getElementById(id);
+let lastId = null;
+
+function render(state) {
+  $("storeName").textContent = state.store || "";
+
+  const items = state.items || [];
+  const roll  = $("roll");
+  const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
+  const units    = items.reduce((s, i) => s + i.qty, 0);
+  const newest   = items.length ? items[items.length - 1] : null;
+
+  if (!items.length) {
+    roll.innerHTML = '<div class="empty"><p>Waiting for the first item to be scanned.</p></div>';
+    lastId = null;
+  } else {
+    roll.innerHTML = items.map((i, idx) => {
+      const latest = idx === items.length - 1;
+      const fresh  = latest && newest.id !== lastId && lastId !== null;
+      return `<div class="line ${latest ? "is-latest" : ""} ${fresh ? "just-scanned" : ""}">
+        <p class="name">${i.name}</p>
+        <p class="amount">${money(i.qty * i.price)}</p>
+        <p class="calc">${i.qty} &times; ${money(i.price)}</p>
+        <p class="sku">${i.id}</p>
+      </div>`;
+    }).join("");
+    roll.scrollTop = roll.scrollHeight;
+    lastId = newest.id;
+  }
+
+  const discount = state.discount || 0;
+  $("adjustments").innerHTML = discount > 0
+    ? `<div><span>Subtotal</span><span>${money(subtotal)}</span></div>
+       <div class="saving"><span>Discount</span><span>&minus;${money(discount)}</span></div>`
+    : "";
+
+  $("total").textContent = money(subtotal - discount);
+  $("count").textContent = units ? `${units} item${units > 1 ? "s" : ""}` : "No items yet";
+  document.querySelector(".total .cur").textContent = state.currency || "PKR";
+
+  const p = state.promo;
+  if (p) {
+    $("promoKicker").textContent = p.kicker || "";
+    $("promoTitle").textContent  = p.title  || "";
+    $("promoPrice").textContent  = p.price  || "";
+    $("promoPrice").parentElement.hidden = !p.price;
+    $("promoWas").textContent    = p.was    || "";
+    $("promoWas").hidden         = !p.was;
+    $("promoTerms").textContent  = p.terms  || "";
+    $("promoFlag").textContent   = p.flag   || "";
+    $("promoFlag").hidden        = !p.flag;
+    if (p.image) {
+      const fig = $("promoFigure");
+      fig.querySelector("svg")?.remove();
+      let img = fig.querySelector("img");
+      if (!img) { img = document.createElement("img"); img.alt = p.title || ""; fig.append(img); }
+      if (img.src !== p.image) img.src = p.image;
+    }
+  }
+}
+
+function tick() {
+  $("clock").textContent = new Date().toLocaleString("en-PK", {
+    weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit", hour12: true
+  });
+}
+
+async function poll() {
+  if (!POLL_URL) return;
+  try {
+    const res = await fetch(POLL_URL, { headers: { "X-Requested-With": "fetch" } });
+    if (!res.ok) throw new Error(res.status);
+    render(await res.json());
+    $("pulse").classList.remove("is-stale");
+  } catch {
+    $("pulse").classList.add("is-stale");   // cashier can see the screen went stale
+  }
+}
+
+tick();
+setInterval(tick, 1000);
+setInterval(poll, POLL_MS);
+poll();
+</script>
+</body>
 </html>

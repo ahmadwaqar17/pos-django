@@ -2,10 +2,11 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.shortcuts import render, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django import forms
+from django.db.models import Q
 from cart.models import Cart, displayed_items
-from inventory.models import product
+from inventory.models import product, department
 from transaction.models import productTransaction, transaction
 from transaction.views import DateSelector
 from plotly import express as px
@@ -15,6 +16,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytz, os, shutil
 timezone = pytz.timezone("US/Eastern")
+
 
 
 class EnterBarcode(forms.Form):
@@ -37,6 +39,10 @@ def register(request):
         cart = Cart(request)
         Total = 0
         Tax_Total = 0
+    
+    all_products = product.objects.select_related('department').all()
+    departments = department.objects.all()
+
     context = {
         'form':form,
         'no_product':  True if "ProductNotFound" in request.path else False,
@@ -44,6 +50,8 @@ def register(request):
         'total':Total,
         'tax_total':Tax_Total,
         'displayed_items':displayed_items.objects.all(),
+        'all_products': all_products,
+        'departments': departments,
     }
     request.session["Total"] = Total
     request.session["Tax_Total"] = Tax_Total
@@ -52,56 +60,72 @@ def register(request):
 
 
 @login_required(login_url="/user/login/")
+def api_products(request):
+    q = request.GET.get('q', '').strip()
+    dept_id = request.GET.get('department', '').strip()
+    products_qs = product.objects.select_related('department').all()
+    if q:
+        products_qs = products_qs.filter(
+            Q(barcode__icontains=q) | Q(name__icontains=q) | Q(product_desc__icontains=q)
+        )
+    if dept_id and dept_id.isdigit():
+        products_qs = products_qs.filter(department_id=int(dept_id))
+    
+    data = []
+    for p in products_qs[:100]:
+        data.append({
+            'id': p.id,
+            'barcode': p.barcode,
+            'name': p.name,
+            'sales_price': str(p.sales_price),
+            'qty': p.qty,
+            'department_name': p.department.department_name,
+            'department_id': p.department.id,
+        })
+    return JsonResponse({'products': data})
+
+
+
+@login_required(login_url="/user/login/")
 def retail_display(request,values=None):
     if values:
-        try:
-            # response = f"""<div class="h5 text-dark" style="text-align:left;white-space:pre-wrap;padding-right:50px;"><div class="p-2">{'SUB-TOTAL':<15}:     {round(request.session["Total"]-request.session["Tax_Total"],2)}</div><div class="p-2">{'TAX-TOTAL':<16}:     {request.session["Tax_Total"]}</div></div><hr><div class="h1 text-gray-900 pl-5">TOTAL : <span style="padding-left:80px;">{request.session["Total"]}</span></div>"""
-            cart = request.session[settings.CART_SESSION_ID]
-            
-            if len(cart) == 0: return HttpResponse("IMAGE")
-            
-            total = round(pd.DataFrame(cart).T["line_total"].astype(float).sum(),2) 
-            response = f"""<div class="card shadow-sm p-0 m-0" style="width:100%;height:95%">
-                    <div class="card-header p-0" >
-                        <table class="table p-0 m-0" style="text-align:right;">
-                            <tr>
-                                <th style="font-family: bold;color:rgba(0, 0, 0, 0.623); width:40%" >Barcode/Name</th>
-                                <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Qty</th>
-                                <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Price</th>
-                                <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">L-Total<br>Tax</th>
-                                <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">L-Total<br>Deposit</th>
-                                <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Line<br>Total</th>
-                            </tr>
-                        </table>
-                    </div>
-                    <div id="table-body" class="card-body" style="overflow: auto ;padding:0;">
-                        <table class="table p-0 m-0" style="text-align:right;">
-                """
-            if cart:
-                for key,value in cart.items():
-                    response = response + f"""<tr>
-                                <th style="text-align:left">{key} <br> {value['name']}</th> 
-                                <td>{value['quantity']}</td>
-                                <td>{value['price']}</td>
-                                <td>{value['tax_value']}</td>
-                                <td>{value['deposit_value']}</td>
-                                <td>{value['line_total']}</td>
-                            </tr> """
-            response = response + f"""</table> </div> 
-                                        <div class="card-footer py-3">
-                                            <h1 class="m-0 font-weight-bold text-primary">Transaction Total:
-                                            <span class="m-0 font-weight-bold text-dark" style="float:right;item-align:right">$ {total:.2f}</span>
-                                            </h1>
-                                        </div>
-                                    </div>"""
-            return HttpResponse(response)
-        except Exception as e:
-            print(e)
-            return HttpResponse("")
-    
+        cart = request.session.get(settings.CART_SESSION_ID, {})
+        items = []
+        for key, value in cart.items():
+            try:
+                items.append({
+                    'id': key,
+                    'name': value['name'],
+                    'qty': int(value['quantity']),
+                    'price': float(value['price']),
+                })
+            except Exception:
+                continue
+
+        path = "images4display/"
+        if os.path.exists(f"./{path}"):
+            shutil.copytree(f"./{path}", f"{settings.STATIC_ROOT}/{path}", dirs_exist_ok=True)
+        img_list = [ path+i for i in  os.listdir(path) if i.lower().endswith(('.jpg','.jpeg','.png','.webp','.gif'))] if os.path.exists(f"./{path}") else []
+        promo_img = f"{settings.STATIC_URL}{img_list[0]}" if img_list else None
+
+        return JsonResponse({
+            'store': settings.STORE_NAME,
+            'currency': 'PKR',
+            'items': items,
+            'discount': 0,
+            'promo': {
+                'kicker': "Today at the counter",
+                'title': "Special Offers",
+                'price': "",
+                'was': "",
+                'flag': "OFFERS",
+                'terms': "Ask the cashier for today's deals.",
+                'image': promo_img,
+            },
+        })
+
     path="images4display/"  # insert the path to your directory   
     if os.path.exists(f"./{path}"):
-        # print(f"{settings.STATIC_ROOT}/{path}")
         shutil.copytree(f"./{path}", f"{settings.STATIC_ROOT}/{path}", dirs_exist_ok=True)
     img_list = [ path+i for i in  os.listdir(path) if not i.endswith('.md')]
     

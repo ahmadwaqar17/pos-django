@@ -5,9 +5,90 @@
 
 {% block nav-item %}  Receipt - {{transNo}}  {% endblock %}
 
-{% block content %}  
-<a href="/transaction_receipt/{{transNo}}/print/" ><button class="btn-lg btn-primary" style="width: 20%; margin-top: 10px; margin-left: 10px;"> Print </button></a>
-<div style="text-align: center; padding-top: 30px;">
-    <pre>{{receipt}}</pre>
- </div>
-{% endblock content %}  
+{% block content %}
+<div class="d-flex justify-content-center mt-4">
+    <a href="/transaction_receipt/{{transNo}}/print/"><button class="btn btn-primary btn-lg px-5"> Print </button></a>
+</div>
+
+<div class="d-flex justify-content-center py-4">
+    <div class="card shadow-lg border-0" style="width: 400px; max-width: 95%;">
+        <div class="card-body p-4" style="font-family: 'Courier New', monospace;">
+
+            <div class="text-center pb-2">
+                <div class="h4 mb-0 font-weight-bold" style="text-transform:uppercase;">{{ store_name }}</div>
+                <div class="small text-muted">{{ store_address }}</div>
+                {% if store_phone %}<div class="small text-muted">Ph: {{ store_phone }}</div>{% endif %}
+            </div>
+
+            <hr class="my-2 border-dark">
+
+            <div class="text-center small mb-2">
+                <div>{{ txn.transaction_dt|date:"d M Y  h:i A" }}</div>
+                <div class="text-muted">Receipt # {{ txn.transaction_id|slice:":14" }}</div>
+            </div>
+
+            <table class="table table-sm table-borderless mb-2 small" style="font-family:'Courier New', monospace;">
+                <thead class="border-bottom border-dark">
+                    <tr>
+                        <th class="pl-0">Item</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-right pr-0">Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td class="pl-0">
+                            <div class="font-weight-bold">{{ item.name|slice:":25" }}</div>
+                            <div class="text-muted">{{ item.barcode }}</div>
+                        </td>
+                        <td class="text-center align-middle">{{ item.quantity }}</td>
+                        <td class="text-right align-middle pr-0">{{ item.line_total|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <hr class="my-2 border-dark">
+
+            <table class="table table-sm table-borderless mb-0 small" style="font-family:'Courier New', monospace;">
+                <tr>
+                    <td class="pl-0 text-muted">Sub Total</td>
+                    <td class="text-right pr-0">{{ txn.sub_total|floatformat:2 }}</td>
+                </tr>
+                {% if txn.tax_total %}
+                <tr>
+                    <td class="pl-0 text-muted">Tax</td>
+                    <td class="text-right pr-0">{{ txn.tax_total|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                {% if txn.deposit_total %}
+                <tr>
+                    <td class="pl-0 text-muted">Deposit</td>
+                    <td class="text-right pr-0">{{ txn.deposit_total|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                <tr class="border-top border-bottom border-dark font-weight-bold h6">
+                    <td class="pl-0">TOTAL (PKR)</td>
+                    <td class="text-right pr-0">{{ txn.total_sale|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td class="pl-0">{{ txn.payment_type }}</td>
+                    <td class="text-right pr-0">{{ txn.total_sale|floatformat:2 }}</td>
+                </tr>
+            </table>
+
+            <hr class="my-2 border-dark">
+
+            <div class="text-center small py-1">
+                <div class="font-weight-bold text-uppercase">Thank You</div>
+            </div>
+
+            <div class="text-center text-muted mt-2" style="font-size:11px;">
+                Trans ID: {{ txn.transaction_id }}
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock content %}
