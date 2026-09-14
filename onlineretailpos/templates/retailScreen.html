@@ -6,21 +6,44 @@ Register | Online Retail POS
 {% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold  h5 text-gray-500 text-uppercase p-3 "> Register </div>
+<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3 d-flex align-items-center justify-content-between">
+    <span>Register</span>
+    <button type="button" class="btn btn-primary btn-sm shadow-sm" data-toggle="modal" data-target="#productListModal">
+        <i class="fas fa-boxes mr-1"></i> 📋 Browse Product Catalog
+    </button>
+</div>
 {% endblock %}
 
 {% block content %}
 <div class="row" style="width: 100%;padding-right: 0px;">
     <div class="col-lg-6">
         <div class="row mb-0" style="padding-bottom:5px;">
-            <form class="form col-lg-6" action="{{ request.get_full_path }}" method = "POST" style="width:100%;padding-bottom: 10px;padding:10px;padding-top: 15px;">
+            <form class="form col-lg-6" action="{{ request.get_full_path }}" method="POST" id="barcode-form" style="width:100%;padding-bottom: 10px;padding:10px;padding-top: 10px;">
                 {% csrf_token %}
-                <div class="row" style="width:100%;justify-content: center;">
-                {% for field in form %}
-                <ul style="padding-left:25px;width:300px;"><strong style="color:black;width:100%;padding-right: 15px;padding-left: 10px;">{{ field.label }} :</strong> {{ field }}</ul>
-                {% endfor %}
+                <div class="row" style="width:100%;justify-content: center; position: relative;">
+                    <div class="w-100 mb-2">
+                        <label class="font-weight-bold text-dark mb-1 d-flex justify-content-between align-items-center" style="width:100%;">
+                            <span>Barcode / Product SKU / Name:</span>
+                            <small class="text-primary font-weight-normal" style="cursor:pointer;" data-toggle="modal" data-target="#productListModal">
+                                <i class="fas fa-search"></i> Product Catalog
+                            </small>
+                        </label>
+                        <div style="position: relative;">
+                            <input type="text" name="barcode" id="id_barcode" class="form-control" placeholder="Scan or type barcode / name..." autofocus autocomplete="off" style="width:100%;">
+                            <div id="barcode_autocomplete_dropdown" class="shadow rounded bg-white border" style="display:none; position:absolute; top: 100%; left: 0; right: 0; z-index: 1050; max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                    <div class="w-100 mb-2">
+                        <label class="font-weight-bold text-dark mb-1">Quantity:</label>
+                        <input type="number" name="qty" id="id_qty" class="form-control" value="1" min="1" style="width:100%;">
+                    </div>
                 </div>
-                <input class="btn btn-primary"  style="width:100%;margin-top: 10px;" id="submit-barcode" type="submit" value="Submit">
+                <div class="d-flex" style="gap: 5px; margin-top: 5px;">
+                    <input class="btn btn-primary flex-grow-1" id="submit-barcode" type="submit" value="Submit">
+                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#productListModal" title="Open Product List">
+                        <i class="fas fa-list"></i> Products
+                    </button>
+                </div>
             </form>
             <div class="col-lg-6 card border-left-success shadow-sm h-100 py-2" style="width:100%;margin-top:10px;margin-bottom: 10px;">
                 <div class="card-header py-2">
@@ -39,13 +62,13 @@ Register | Online Retail POS
                             <div class="h3 mb-0 font-weight-bold text-gray-800" style="text-align:right;" >{{ total|floatformat:2 }}</div>
                         </div>
                         <div class="col-auto">
-                            <i class="fas fa-dollar-sign fa-3x text-gray-300"></i>
+                            <span class="text-gray-300" style="font-size:3rem;font-weight:700">₨</span>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="row mb-2" id="cart_display"  style="padding-top: 10px; padding-bottom: 0px;">
+        <div class="row mb-2" id="cart_display" style="padding-top: 10px; padding-bottom: 0px;">
             {% if no_product %}
             <div class="loginPopup" id='popup'>
                 <div class="formPopup" id="popupForm" style="display:block">
@@ -57,14 +80,14 @@ Register | Online Retail POS
             </div>
             {% endif %}
             <div class="card shadow-sm" style="width:100%;height:465px;">
-                <div class="card-header py-3">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Transaction Details</h6>
+                    <span class="badge badge-primary">{{ cart|length }} Item(s)</span>
                 </div>
                 <div class="card-body" style="overflow: auto ;padding:0">
                     <table class="table" style="text-align:right;">
                         <tr>
                             <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)" >Barcode/Name</th>
-                            <!-- <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Name</th> -->
                             <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Qty</th>
                             <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Price</th>
                             <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">L-Total<br>Tax</th>
@@ -74,7 +97,6 @@ Register | Online Retail POS
                         {% for key, value in cart.items %}
                         <tr>
                             <th style="text-align:left">{{key}} <br> {{value.name}}</th>
-                            <!-- <td>{{value.name}}</td> -->
                             <td>{{value.quantity}}</td>
                             <td>{{value.price}}</td>
                             <td>{{value.tax_value}}</td>
@@ -86,84 +108,429 @@ Register | Online Retail POS
                 </div>
             </div>
         </div>
-        
-        
     </div>
-    <div class="col-lg-6" >
-        <hr >
+
+    <div class="col-lg-6">
+        <hr>
         <div class="btn-block" style="padding-top: 10px;text-align:center">
             <button id="disable_1" onclick="return window.open('/register/returns_transaction/',target='_self')" class="btn btn-warning" style="width:23%;margin:2px;height:60px;margin-bottom:5px" > (-)<br>Returns </button>
             <button id="disable_2" onclick="return window.open('/register/suspend_transaction/',target='_self')" class="btn btn-info" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Suspend<br>Transaction </button>
             <button onclick="return window.open('/register/recall_transaction/',target='_self')" class="btn btn-info" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Recall<br>Transaction </button>
             <button id="disable_4" onclick="return window.open('/register/cart_clear/',target='_self')" class="btn btn-danger" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Clear<br>Transaction </button>
         </div>
-        <hr >
+        <hr>
         <div class="btn-block" style="padding-top: 10px;text-align:center" >
             <button id="disable_P_1" onclick="return window.open('/endTransaction/card/DEBIT_CREDIT/',target='_self')" class="btn btn-success" style="width:23%;height:60px; margin:2px;margin-bottom:5px;background-color:darkgreen" > Debit/<br>Credit </button>
-            <button id="disable_P_2" onclick="endTransactionCash(5,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 5$ </button>
-            <button id="disable_P_3" onclick="endTransactionCash(10,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 10$ </button>
-            <button id="disable_P_4" onclick="endTransactionCash('Next','{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:rgb(27, 66, 27)"> Next<br>Dollar </button>
+            <button id="disable_P_2" onclick="endTransactionCash(100,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 100 </button>
+            <button id="disable_P_3" onclick="endTransactionCash(500,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 500 </button>
+            <button id="disable_P_4" onclick="endTransactionCash('Next','{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:rgb(27, 66, 27)"> Next<br>Amount </button>
             <button id="disable_P_5" onclick="return window.open('/endTransaction/card/EBT/',target='_self')" class="btn btn-success" style="width:23%;margin: 2px;height:60px;margin-bottom:5px;background-color:darkgreen"> EBT </button>
-            <button id="disable_P_6" onclick="endTransactionCash(20,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px" > 20$ </button>
-            <button id="disable_P_7" onclick="endTransactionCash(50,'{{ total }}')" class="btn btn-success" style="width:23%;margin: 2px;height:60px;margin-bottom:5px"> 50$ </button>
+            <button id="disable_P_6" onclick="endTransactionCash(1000,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px" > 1000 </button>
+            <button id="disable_P_7" onclick="endTransactionCash(5000,'{{ total }}')" class="btn btn-success" style="width:23%;margin: 2px;height:60px;margin-bottom:5px"> 5000 </button>
             <button id="disable_P_8" onclick="endTransactionCash('CASH','{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:rgb(27, 66, 27)"> CASH </button>
         </div>
         <div class="loginPopup" id='cash_popup'> </div>
-        <hr >
-        <div class="btn-block"  style="height: 353px;overflow:scroll;text-align:center;padding-top: 7px;">
-            {% for i in displayed_items %}
-             <!-- only 24 buttons to be added per section  -->
-            {% if i.variable_price %}
-            <button onclick="variableAmount('{{i.barcode}}','{{ i.display_name }}','{{ i.display_info }}')" class="btn btn-primary" style="width:23%;margin:2px;height:60px;margin-bottom:5px;margin-top:5px;background-color:'{{ i.display_color }}'"> {{ i.display_name }} </a>
-            {% else %}
-            <button onclick="return window.open('/cart/add/{{i.barcode}}/1/',target='_self')" class="btn btn-dark" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:'{{ i.display_color }}'" >  {{ i.display_name }} </button>
-            {% endif %}
-            {% endfor %}
+        <hr>
+
+        <!-- Right Side Panel: Tabs for Quick Buttons & Product List Grid -->
+        <div class="card shadow-sm border-0" style="min-height: 353px;">
+            <div class="card-header p-2 bg-light">
+                <ul class="nav nav-pills nav-justified" id="registerTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active font-weight-bold" id="quick-buttons-tab" data-toggle="tab" href="#quick-buttons-pane" role="tab" aria-controls="quick-buttons-pane" aria-selected="true">
+                            <i class="fas fa-th-large mr-1"></i> Quick Buttons
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link font-weight-bold" id="product-grid-tab" data-toggle="tab" href="#product-grid-pane" role="tab" aria-controls="product-grid-pane" aria-selected="false">
+                            <i class="fas fa-boxes mr-1"></i> All Products Grid
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body p-2 tab-content" style="height: 300px; overflow-y: auto;">
+                <!-- Tab 1: Quick Buttons -->
+                <div class="tab-pane fade show active" id="quick-buttons-pane" role="tabpanel" aria-labelledby="quick-buttons-tab">
+                    <div class="btn-block text-center pt-2">
+                        {% for i in displayed_items %}
+                        {% if i.variable_price %}
+                        <button onclick="variableAmount('{{i.barcode}}','{{ i.display_name }}','{{ i.display_info }}')" class="btn btn-primary" style="width:23%;margin:2px;height:60px;margin-bottom:5px;margin-top:5px;background-color:'{{ i.display_color }}'"> {{ i.display_name }} </button>
+                        {% else %}
+                        <button onclick="return window.open('/cart/add/{{i.barcode}}/1/',target='_self')" class="btn btn-dark" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:'{{ i.display_color }}'" > {{ i.display_name }} </button>
+                        {% endif %}
+                        {% empty %}
+                        <div class="text-muted p-4">No quick buttons assigned. Click the <strong>All Products Grid</strong> tab above or <strong>Browse Product Catalog</strong> to select products.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Tab 2: Product Catalog Grid -->
+                <div class="tab-pane fade" id="product-grid-pane" role="tabpanel" aria-labelledby="product-grid-tab">
+                    <div class="mb-2">
+                        <input type="text" id="grid_search_input" class="form-control form-control-sm" placeholder="🔍 Search products..." autocomplete="off">
+                    </div>
+                    <div class="row no-gutters" id="product_grid_container">
+                        {% for p in all_products %}
+                        <div class="col-6 col-md-4 p-1 grid-product-card" data-search="{{ p.name|lower }} {{ p.barcode }}">
+                            <div class="card h-100 shadow-sm border-left-info" style="cursor: pointer; transition: transform 0.1s;" onclick="window.open('/cart/add/{{ p.barcode }}/1/', target='_self')">
+                                <div class="card-body p-2 text-center">
+                                    <div class="font-weight-bold text-dark text-truncate mb-1" style="font-size: 0.85rem;" title="{{ p.name }}">{{ p.name }}</div>
+                                    <small class="text-muted d-block" style="font-size: 0.75rem;">SKU: {{ p.barcode }}</small>
+                                    <div class="text-success font-weight-bold mt-1" style="font-size: 0.9rem;">₨ {{ p.sales_price }}</div>
+                                    <span class="badge badge-light border mt-1" style="font-size: 0.7rem;">Stock: {{ p.qty }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center text-muted p-3">No products available.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
         <hr style="margin-right: 4%;">
     </div>
 </div>
-    {% if total == 0.0 %}
-    <script>
-        var elements = document.querySelectorAll('[id^="disable_"]');
-        for (var i = 0; i < elements.length; i++){ elements[i].disabled = true; }
-    </script>
-    {% endif %}
+
+<!-- Product Catalog Modal -->
+<div class="modal fade" id="productListModal" tabindex="-1" role="dialog" aria-labelledby="productListModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document" style="margin: 0.5rem auto;">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header bg-primary text-white py-2 px-3">
+                <h5 class="modal-title font-weight-bold h6 mb-0" id="productListModalLabel">
+                    <i class="fas fa-boxes mr-2"></i> Product Catalog List
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-2 p-md-3">
+                <!-- Search & Filter Controls -->
+                <div class="row no-gutters mb-2 align-items-center" style="gap: 5px;">
+                    <div class="col-12 col-md-6 mb-2 mb-md-0">
+                        <div class="input-group input-group-sm">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            </div>
+                            <input type="text" id="modal_product_search" class="form-control" placeholder="Search by Product Name, Barcode, or SKU..." autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-7 col-md-4">
+                        <select id="modal_dept_filter" class="form-control form-control-sm">
+                            <option value="">All Departments</option>
+                            {% for d in departments %}
+                            <option value="{{ d.id }}">{{ d.department_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-4 col-md-2 text-right">
+                        <span id="modal_product_count" class="badge badge-secondary p-2 w-100" style="font-size: 0.8rem;">Total: {{ all_products|length }}</span>
+                    </div>
+                </div>
+
+                <!-- Desktop / Tablet Table View (Hidden on Small Phones) -->
+                <div class="table-responsive d-none d-md-block" style="max-height: 480px; overflow-y: auto;">
+                    <table class="table table-bordered table-hover mb-0" id="modal_products_table" style="min-width: 650px;">
+                        <thead class="thead-light sticky-top" style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th style="width: 16%;">Barcode / SKU</th>
+                                <th style="width: 30%;">Product Name</th>
+                                <th style="width: 18%;">Department</th>
+                                <th style="width: 12%;">Price</th>
+                                <th style="width: 11%;">Stock</th>
+                                <th style="width: 13%; text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in all_products %}
+                            <tr class="product-modal-row" data-barcode="{{ p.barcode }}" data-name="{{ p.name|lower }}" data-dept="{{ p.department.id }}">
+                                <td><code>{{ p.barcode }}</code></td>
+                                <td class="font-weight-bold text-dark">{{ p.name }}</td>
+                                <td><span class="badge badge-light border">{{ p.department.department_name }}</span></td>
+                                <td class="text-success font-weight-bold">₨ {{ p.sales_price }}</td>
+                                <td>
+                                    {% if p.qty > 0 %}
+                                    <span class="badge badge-success">{{ p.qty }} in stock</span>
+                                    {% else %}
+                                    <span class="badge badge-danger">Out of stock</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align:center;">
+                                    <div class="input-group input-group-sm justify-content-center">
+                                        <input type="number" class="form-control text-center item-qty-input" value="1" min="1" style="max-width: 50px;">
+                                        <div class="input-group-append">
+                                            <button type="button" class="btn btn-sm btn-success" onclick="addToCartFromModal('{{ p.barcode }}', this)">
+                                                <i class="fas fa-cart-plus"></i> Add
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted p-4">No products found in inventory.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card List View (Shown only on Small Screens / Phones) -->
+                <div class="d-block d-md-none" id="modal_mobile_cards" style="max-height: 450px; overflow-y: auto;">
+                    {% for p in all_products %}
+                    <div class="card mb-2 shadow-sm product-mobile-card border-left-primary" data-barcode="{{ p.barcode }}" data-name="{{ p.name|lower }}" data-dept="{{ p.department.id }}">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div style="max-width: 65%;">
+                                    <h6 class="font-weight-bold text-dark mb-1" style="font-size: 0.95rem;">{{ p.name }}</h6>
+                                    <small class="text-muted d-block">SKU: <code>{{ p.barcode }}</code></small>
+                                    <span class="badge badge-light border mt-1" style="font-size: 0.75rem;">{{ p.department.department_name }}</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="h6 font-weight-bold text-success mb-1 d-block">₨ {{ p.sales_price }}</span>
+                                    {% if p.qty > 0 %}
+                                    <span class="badge badge-success" style="font-size: 0.75rem;">{{ p.qty }} in stock</span>
+                                    {% else %}
+                                    <span class="badge badge-danger" style="font-size: 0.75rem;">Out of stock</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
+                                <span class="small text-muted font-weight-bold">Quantity:</span>
+                                <div class="input-group input-group-sm" style="max-width: 150px;">
+                                    <input type="number" class="form-control text-center item-qty-input" value="1" min="1">
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-success btn-sm font-weight-bold" onclick="addToCartFromModal('{{ p.barcode }}', this)">
+                                            <i class="fas fa-cart-plus mr-1"></i> Add
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted p-4">No products found in inventory.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer py-2 px-3">
+                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if total == 0.0 %}
 <script>
+    var elements = document.querySelectorAll('[id^="disable_"]');
+    for (var i = 0; i < elements.length; i++){ elements[i].disabled = true; }
+</script>
+{% endif %}
+
+<script>
+    // Product data serialized for client-side search autocomplete
+    var productsCatalog = [
+        {% for p in all_products %}
+        {
+            barcode: "{{ p.barcode|escapejs }}",
+            name: "{{ p.name|escapejs }}",
+            price: "{{ p.sales_price }}",
+            qty: {{ p.qty }},
+            dept: "{{ p.department.department_name|escapejs }}",
+            dept_id: "{{ p.department.id }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    $(document).ready(function() {
+        var $barcodeInput = $('#id_barcode');
+        var $dropdown = $('#barcode_autocomplete_dropdown');
+        var selectedIdx = -1;
+
+        // Autocomplete search on typing in Barcode field
+        $barcodeInput.on('input focus', function() {
+            var query = $(this).val().trim().toLowerCase();
+            if (query.length === 0) {
+                $dropdown.hide().empty();
+                selectedIdx = -1;
+                return;
+            }
+
+            var matches = productsCatalog.filter(function(p) {
+                return p.barcode.toLowerCase().indexOf(query) !== -1 ||
+                       p.name.toLowerCase().indexOf(query) !== -1;
+            }).slice(0, 8);
+
+            if (matches.length === 0) {
+                $dropdown.hide().empty();
+                selectedIdx = -1;
+                return;
+            }
+
+            var html = '';
+            matches.forEach(function(item, idx) {
+                html += '<a href="#" class="dropdown-item py-2 px-3 border-bottom autocomplete-item" data-barcode="' + item.barcode + '" data-idx="' + idx + '">' +
+                            '<div class="d-flex justify-content-between align-items-center">' +
+                                '<strong class="text-dark">' + escapeHtml(item.name) + '</strong>' +
+                                '<span class="badge badge-success">₨ ' + item.price + '</span>' +
+                            '</div>' +
+                            '<div class="small text-muted">' +
+                                'SKU: ' + escapeHtml(item.barcode) + ' | Stock: ' + item.qty + ' | ' + escapeHtml(item.dept) +
+                            '</div>' +
+                        '</a>';
+            });
+
+            $dropdown.html(html).show();
+            selectedIdx = -1;
+        });
+
+        // Click outside closes autocomplete dropdown
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#id_barcode, #barcode_autocomplete_dropdown').length) {
+                $dropdown.hide();
+            }
+        });
+
+        // Click on autocomplete suggestion
+        $dropdown.on('click', '.autocomplete-item', function(e) {
+            e.preventDefault();
+            var barcode = $(this).data('barcode');
+            var qty = $('#id_qty').val() || 1;
+            window.open('/cart/add/' + encodeURIComponent(barcode) + '/' + qty + '/', '_self');
+        });
+
+        // Keyboard navigation (Arrow Up/Down, Enter)
+        $barcodeInput.on('keydown', function(e) {
+            var $items = $dropdown.find('.autocomplete-item');
+            if ($dropdown.is(':visible') && $items.length > 0) {
+                if (e.which === 40) { // Arrow Down
+                    e.preventDefault();
+                    selectedIdx = (selectedIdx + 1) % $items.length;
+                    $items.removeClass('active bg-light');
+                    $items.eq(selectedIdx).addClass('active bg-light');
+                } else if (e.which === 38) { // Arrow Up
+                    e.preventDefault();
+                    selectedIdx = (selectedIdx - 1 + $items.length) % $items.length;
+                    $items.removeClass('active bg-light');
+                    $items.eq(selectedIdx).addClass('active bg-light');
+                } else if (e.which === 13 && selectedIdx >= 0) { // Enter on highlighted
+                    e.preventDefault();
+                    $items.eq(selectedIdx).click();
+                }
+            }
+        });
+
+        // Modal Product Catalog Filtering (Updates both table rows & mobile cards)
+        function filterModalProducts() {
+            var searchVal = $('#modal_product_search').val().trim().toLowerCase();
+            var deptVal = $('#modal_dept_filter').val();
+            var visibleCount = 0;
+
+            // Filter Desktop Table Rows
+            $('#modal_products_table tbody tr.product-modal-row').each(function() {
+                var barcode = $(this).data('barcode').toString().toLowerCase();
+                var name = $(this).data('name').toString().toLowerCase();
+                var dept = $(this).data('dept').toString();
+
+                var matchesSearch = !searchVal || barcode.indexOf(searchVal) !== -1 || name.indexOf(searchVal) !== -1;
+                var matchesDept = !deptVal || dept === deptVal;
+
+                if (matchesSearch && matchesDept) {
+                    $(this).show();
+                    visibleCount++;
+                } else {
+                    $(this).hide();
+                }
+            });
+
+            // Filter Mobile Cards
+            var visibleMobileCount = 0;
+            $('#modal_mobile_cards .product-mobile-card').each(function() {
+                var barcode = $(this).data('barcode').toString().toLowerCase();
+                var name = $(this).data('name').toString().toLowerCase();
+                var dept = $(this).data('dept').toString();
+
+                var matchesSearch = !searchVal || barcode.indexOf(searchVal) !== -1 || name.indexOf(searchVal) !== -1;
+                var matchesDept = !deptVal || dept === deptVal;
+
+                if (matchesSearch && matchesDept) {
+                    $(this).show();
+                    visibleMobileCount++;
+                } else {
+                    $(this).hide();
+                }
+            });
+
+            var countToShow = ($('#modal_mobile_cards').is(':visible')) ? visibleMobileCount : visibleCount;
+            $('#modal_product_count').text('Total: ' + countToShow);
+        }
+
+        $('#modal_product_search').on('keyup input', filterModalProducts);
+        $('#modal_dept_filter').on('change', filterModalProducts);
+
+        // Right Panel Grid Search Filtering
+        $('#grid_search_input').on('keyup input', function() {
+            var q = $(this).val().trim().toLowerCase();
+            $('#product_grid_container .grid-product-card').each(function() {
+                var text = $(this).data('search').toString().toLowerCase();
+                if (!q || text.indexOf(q) !== -1) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        });
+    });
+
+    function addToCartFromModal(barcode, btnElement) {
+        var $container = $(btnElement).closest('tr, .product-mobile-card');
+        var qty = $container.find('.item-qty-input').val() || 1;
+        window.open('/cart/add/' + encodeURIComponent(barcode) + '/' + qty + '/', '_self');
+    }
+
+
+    function escapeHtml(text) {
+        return $('<div>').text(text).html();
+    }
+
     function endTransactionCash(value,total){
-        var total = Number(total)
-        if (value=="Next"){
-            value = Math.ceil(total) }
-        var value = Number(value)
-        if (total<=value){
-            window.open("/endTransaction/cash/"+value+"/", target="_self")
-        }else{
-            // var cash = Number(prompt("Enter Cash Amount...\n\n"))
-            document.getElementById("cash_popup").innerHTML = '<div class="formPopup" id="popupForm" style="display:block"><form action="#" onsubmit="return endForm(this,'+total+')" class="formContainer"> <div class="h3 mb-4 text-gray-800">Please Enter <br>Cash Amount....</div><input class="mb-3" type="text" id="cashAmount" placeholder="Cash Amount..." autocomplete="off" required /><button type="submit" class="btn btn-success btn-lg btn-block">Enter</button><button type="button" class="btn btn-danger btn-lg btn-block" onclick="closeForm()">Close</button></form></div>'
+        var total = Number(total);
+        if (value == "Next"){
+            value = Math.ceil(total);
+        }
+        var value = Number(value);
+        if (total <= value){
+            window.open("/endTransaction/cash/"+value+"/", target="_self");
+        } else {
+            document.getElementById("cash_popup").innerHTML = '<div class="formPopup" id="popupForm" style="display:block"><form action="#" onsubmit="return endForm(this,'+total+')" class="formContainer"> <div class="h3 mb-4 text-gray-800">Please Enter <br>Cash Amount....</div><input class="mb-3" type="text" id="cashAmount" placeholder="Cash Amount..." autocomplete="off" required /><button type="submit" class="btn btn-success btn-lg btn-block">Enter</button><button type="button" class="btn btn-danger btn-lg btn-block" onclick="closeForm()">Close</button></form></div>';
             $( "#cashAmount" ).focus();
         }
     }
+
     function endForm(form,total){
-        closeForm()
-        endTransactionCash(form.cashAmount.value,total)
+        closeForm();
+        endTransactionCash(form.cashAmount.value,total);
         return false;
     }
+
     function closeForm(){
         document.getElementById("popupForm").style.display = "none";
     }
-    
+
     function variableAmount(barcode,name,info){
-        document.getElementById("cash_popup").innerHTML = '<div class="formPopup" id="popupForm" style="display:block"><form action="#" onsubmit="return amountProductFunc(this);" class="formContainer"><label id="department_value" class="h5 text-primary">'+barcode+'</label><hr><div class="h5 text-success mb-3">'+name+'</div><div class="h6 mb-1 text-gray-800" style="text-align:left">Please Enter Amount...</div><input class="mb-3" type="text" id="cashAmount" placeholder="Variable Amount..." autocomplete="off" required /><button type="submit" class="btn btn-success btn-lg btn-block">Enter</button><button type="button" class="btn btn-danger btn-lg btn-block" onclick="closeForm()">Close</button><div style="text-align:left"><br>'+info+'</div></form></div>'
+        document.getElementById("cash_popup").innerHTML = '<div class="formPopup" id="popupForm" style="display:block"><form action="#" onsubmit="return amountProductFunc(this);" class="formContainer"><label id="department_value" class="h5 text-primary">'+barcode+'</label><hr><div class="h5 text-success mb-3">'+name+'</div><div class="h6 mb-1 text-gray-800" style="text-align:left">Please Enter Amount...</div><input class="mb-3" type="text" id="cashAmount" placeholder="Variable Amount..." autocomplete="off" required /><button type="submit" class="btn btn-success btn-lg btn-block">Enter</button><button type="button" class="btn btn-danger btn-lg btn-block" onclick="closeForm()">Close</button><div style="text-align:left"><br>'+info+'</div></form></div>';
         $( "#cashAmount" ).focus();
     }
+
     function amountProductFunc(form){
-        closeForm()
-        department = form.firstElementChild.innerHTML
-        amount = Number(form.cashAmount.value)
+        closeForm();
+        department = form.firstElementChild.innerHTML;
+        amount = Number(form.cashAmount.value);
         if (amount){
-            window.open("/register/"+department+"/"+amount+"/",target="_self")
+            window.open("/register/"+department+"/"+amount+"/",target="_self");
         }
-        return false
+        return false;
     }
 </script>
 {% endblock %}
+

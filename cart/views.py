@@ -9,6 +9,14 @@ from .models import Cart
 def cart_add(request,id,qty):
     cart = Cart(request)
     product = Product.objects.filter(barcode=id).first()
+    if not product:
+        # Fallback: Search by exact or partial product name / barcode
+        product = Product.objects.filter(name__iexact=id).first()
+    if not product:
+        product = Product.objects.filter(name__icontains=id).first()
+    if not product:
+        product = Product.objects.filter(barcode__icontains=id).first()
+
     if product:
         cart.add(product=product,quantity=int(qty))
         return redirect('register')

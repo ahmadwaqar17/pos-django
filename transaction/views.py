@@ -37,8 +37,17 @@ class printer:
 
 def transactionReceipt(request,transNo):
     try:
-        receipt = transaction.objects.get(transaction_id=transNo).receipt
-        return render(request,'receiptView.html',context={'receipt':receipt, 'transNo': transNo})
+        t = transaction.objects.get(transaction_id=transNo)
+        import ast
+        items = ast.literal_eval(t.products)
+        for it in items:
+            it['line_total'] = round(float(it['price']) * float(it['quantity']), 2)
+        return render(request,'receiptView.html',context={
+            'receipt': t.receipt, 'transNo': transNo,
+            'txn': t, 'items': items,
+            'store_name': settings.STORE_NAME, 'store_address': settings.STORE_ADDRESS,
+            'store_phone': settings.STORE_PHONE,
+        })
     except transaction.DoesNotExist:
         raise Http404("No Transactions Found!!!")
 
@@ -111,22 +120,22 @@ def endTransactionReceipt(request,transNo):
             change = f"""<table class="table text-white h3 p-0 m-0"> 
                             <tr> 
                                 <td class="text-left pl-5"> Total : </td> 
-                                <td class="text-right pr-5"> {request.GET["total"]} $</td> 
+                                <td class="text-right pr-5"> PKR {request.GET["total"]}</td> 
                             </tr> 
                             <tr> 
                                 <td class="text-left pl-5"> Cash : </td> 
-                                <td class="text-right pr-5"> {request.GET["value"]} $</td> 
+                                <td class="text-right pr-5"> PKR {request.GET["value"]}</td> 
                             </tr> 
                             <tr class="h1 badge-danger" >  
                                 <td style="padding-top:15px"> Change : </td> 
-                                <td style="padding-top:15px"> {change*(-1):.2f} $</td> 
+                                <td style="padding-top:15px"> PKR {change*(-1):.2f}</td> 
                             </tr> 
                         </table>"""
         elif request.GET["type"]=="card":
             change = f"""<table class="table text-white h3 p-0 m-0"> 
                             <tr> 
                                 <td class="text-left pl-5"> Total : </td> 
-                                <td class="text-right pr-5"> {request.GET["total"]} $</td> 
+                                <td class="text-right pr-5"> PKR {request.GET["total"]}</td> 
                             </tr> 
                             <tr> 
                                 <td class="text-left pl-5"> Card : </td> 
@@ -174,30 +183,52 @@ def endTransaction(request,type,value):
 
 def addTransaction(user,payment_type,total,cart,value):
     transaction_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
+    short_id = transaction_id[:14]
     cart_df = pd.DataFrame(cart).T.reset_index(drop=True)
     cart_df.index = cart_df.index + 1
     tax_total = round(cart_df["tax_value"].astype(float).sum(),2)
     deposit_total = round(cart_df["deposit_value"].astype(float).sum(),2)
-    cart_df["tax"] = cart_df["tax_value"].astype(float).apply(lambda x: "T" if x>0 else "-T" if x<0 else "")
-    cart_df["deposit"] = cart_df["deposit_value"].astype(float).apply(lambda x: "" if x==0.00 else x )
-    
-    # Building Receipt
-    cart_string =  "\n".join(list(cart_df.apply(
-                            lambda row: f"{str(row.name)+')':<3} {row['name'][:28]}".ljust(settings.RECEIPT_CHAR_COUNT)+ "\n"+
-                                            f" {row['barcode']:<13}{row['quantity']:>3}{row['price']:>7}{row['deposit']:>6}{row['tax']:>2}".rjust(settings.RECEIPT_CHAR_COUNT),axis=1)))
-    cart_string = "NAME | BARCODE QTY PRICE DP TAX".rjust(settings.RECEIPT_CHAR_COUNT) + f"\n{'-'*settings.RECEIPT_CHAR_COUNT}\n" + cart_string
-    
-    cart_string = f"Transaction:{transaction_id}".center(settings.RECEIPT_CHAR_COUNT) + f"\n{'-'*int(settings.RECEIPT_CHAR_COUNT)}\n" + cart_string
-    
-    total_string = f"Sub-Total: {round(total-tax_total,2)}  Tax-Total: {round(tax_total,2)}".center(settings.RECEIPT_CHAR_COUNT)
-    total_string = total_string + "\n" + (' - '*int(settings.RECEIPT_CHAR_COUNT/3)) +"\n" + f"{'TOTAL SALE':>10}: {round(total,2)}".rjust(settings.RECEIPT_CHAR_COUNT)
-    total_string = total_string + "\n" + f"{str(payment_type):>10}: $ {round(value,2):.2f}".rjust(settings.RECEIPT_CHAR_COUNT)
-    total_string = total_string + "\n" + f"{'CHANGE':>10}: $ {round(value-total,2):.2f}".rjust(settings.RECEIPT_CHAR_COUNT)
+    receipt_date = datetime.now().strftime('%d %b %Y  %I:%M %p')
+    w = settings.RECEIPT_CHAR_COUNT
 
-    receipt = settings.RECEIPT_HEADER+ "\n\n" +cart_string+ f"\n{'-'*settings.RECEIPT_CHAR_COUNT}\n{total_string}"+"\n\n" + settings.RECEIPT_FOOTER
-    # receipt = settings.RECEIPT_HEADER+f"\n{'*'*int(settings.RECEIPT_CHAR_COUNT)}\n" +cart_string+ f"\n{'-'*settings.RECEIPT_CHAR_COUNT}\n{total_string}"+f"\n{'*'*int(settings.RECEIPT_CHAR_COUNT)}\n" + settings.RECEIPT_FOOTER
-    
-    receipt = "\n".join([i.center(settings.RECEIPT_CHAR_COUNT) for i in receipt.splitlines()])
+    # Item lines
+    items_lines = []
+    for idx, row in cart_df.iterrows():
+        items_lines.append(f" {str(idx)+')':<3}{str(row['name'])[:20]}")
+        items_lines.append(f"    {row['barcode']:<12} x{int(row['quantity']):<3} PKR {row['price']}")
+        dep = float(row['deposit_value'])
+        if dep > 0:
+            items_lines.append(f"    Deposit:  PKR {dep:.2f}")
+    cart_string = "\n".join(items_lines)
+
+    receipt = f"{'='*w}\n"
+    receipt += f"{settings.STORE_NAME.center(w)}\n"
+    receipt += f"{settings.STORE_ADDRESS.center(w)}\n"
+    if settings.STORE_PHONE:
+        receipt += f"{'Ph: '+str(settings.STORE_PHONE).center(w-4)}\n"
+    receipt += f"{'='*w}\n"
+    receipt += f"{receipt_date.center(w)}\n"
+    receipt += f"{'Receipt #'+short_id.center(w-8)}\n"
+    receipt += f"{'-'*w}\n"
+    receipt += f" {'#':<3}{'Item':<13}{'Qty':>4}  {'Price':>8}\n"
+    receipt += f" {'-'*w}\n"
+    receipt += cart_string + "\n"
+    receipt += f" {'-'*w}\n"
+    receipt += f" {'Subtotal:':<15}PKR {round(total-tax_total,2):>8.2f}\n"
+    if tax_total > 0:
+        receipt += f" {'Tax:':<15}PKR {tax_total:>8.2f}\n"
+    if deposit_total > 0:
+        receipt += f" {'Deposit:':<15}PKR {deposit_total:>8.2f}\n"
+    receipt += f" {'='*w}\n"
+    receipt += f" {'TOTAL:':<15}PKR {round(total,2):>8.2f}\n"
+    receipt += f" {'-'*w}\n"
+    receipt += f" {str(payment_type):<15}PKR {round(value,2):>8.2f}\n"
+    receipt += f" {'CHANGE:':<15}PKR {round(value-total,2):>8.2f}\n"
+    receipt += f"{'='*w}\n"
+    receipt += f"{settings.RECEIPT_FOOTER.center(w)}\n"
+    receipt += f"{'='*w}\n"
+    receipt += f"{('Trans ID: '+transaction_id).center(w)}\n"
+    receipt += f"{'='*w}"
     
     ## IF CASH DRAWER Connected uncomment below
     # if printer.printer and settings.CASH_DRAWER: 
