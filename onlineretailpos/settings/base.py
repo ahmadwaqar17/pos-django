@@ -57,17 +57,11 @@ for _optional_app in ('import_export', 'rangefilter', 'django_admin_logs'):
         pass
 
 
-# Read-only-filesystem hosts (Vercel serverless functions): the sqlite file
-# baked into the build cannot be written. Keep login working by storing
-# sessions in signed cookies (browser-side, no DB write) and skipping the
-# last_login update. Activated automatically on Vercel, or force it with
-# READ_ONLY_DB=1 in the environment. NOTE: checkout/inventory writes still
-# need a writable database (sqlite locally, or Postgres in the cloud).
 # Read-only-filesystem hosts (Vercel serverless functions) running the baked-in
-# sqlite file: keep login working with signed-cookie sessions and skip the
-# last_login update, and let views stash completed sales in the session.
-# A real database (NAME_OF_DATABASE=postgres) is writable, so it gets normal
-# DB-backed sessions and persisted transactions.
+# sqlite file: keep login working with signed-cookie sessions (no DB write),
+# skip the last_login update, and let views stash completed sales in the
+# session. A real database (NAME_OF_DATABASE=postgres) is writable, so it gets
+# normal DB-backed sessions and persisted transactions.
 _using_baked_sqlite = os.getenv('NAME_OF_DATABASE', 'sqlite') == 'sqlite'
 _on_read_only_host = (os.getenv('VERCEL')
                       or os.getenv('READ_ONLY_DB', '').lower() in ('1', 'true', 'yes'))
