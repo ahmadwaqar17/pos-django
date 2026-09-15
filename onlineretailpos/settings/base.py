@@ -131,7 +131,12 @@ USE_TZ = True
 
 STATIC_ROOT = os.path.join(BASE_DIR,'static')
 STATIC_URL = f"/static/"
-STATICFILES_DIRS = (os.path.join(PROJECT_DIR,'static'),)
+STATICFILES_DIRS = (
+    os.path.join(PROJECT_DIR,'static'),
+    # Promo images for the customer display live at the repo root; the prefix
+    # collects them into STATIC_ROOT/images4display/ at build time.
+    ("images4display", os.path.join(BASE_DIR,'images4display')),
+)
 # MEDIA_URL = 'media/'
 # MEDIA_ROOT = Path.joinpath(PROJECT_DIR, "media/")
 # # Assets Management

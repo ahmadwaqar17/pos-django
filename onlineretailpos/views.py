@@ -14,7 +14,7 @@ from plotly import offline as po
 import plotly.figure_factory as ff
 from datetime import datetime, timedelta
 import pandas as pd
-import pytz, os, shutil
+import pytz, os
 timezone = pytz.timezone("US/Eastern")
 
 
@@ -86,6 +86,19 @@ def api_products(request):
 
 
 
+def _display_images(only_media=False):
+    """List collected images4display/ assets from STATIC_ROOT (populated at
+    build time by collectstatic). Read-only: no runtime copying or writes."""
+    base = os.path.join(settings.STATIC_ROOT, "images4display")
+    if not os.path.isdir(base):
+        return []
+    names = os.listdir(base)
+    if only_media:
+        return [f"images4display/{n}" for n in names
+                if n.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif'))]
+    return [f"images4display/{n}" for n in names if not n.endswith('.md')]
+
+
 @login_required(login_url="/user/login/")
 def retail_display(request,values=None):
     if values:
@@ -102,10 +115,7 @@ def retail_display(request,values=None):
             except Exception:
                 continue
 
-        path = "images4display/"
-        if os.path.exists(f"./{path}"):
-            shutil.copytree(f"./{path}", f"{settings.STATIC_ROOT}/{path}", dirs_exist_ok=True)
-        img_list = [ path+i for i in  os.listdir(path) if i.lower().endswith(('.jpg','.jpeg','.png','.webp','.gif'))] if os.path.exists(f"./{path}") else []
+        img_list = _display_images(only_media=True)
         promo_img = f"{settings.STATIC_URL}{img_list[0]}" if img_list else None
 
         return JsonResponse({
@@ -124,13 +134,10 @@ def retail_display(request,values=None):
             },
         })
 
-    path="images4display/"  # insert the path to your directory   
-    if os.path.exists(f"./{path}"):
-        shutil.copytree(f"./{path}", f"{settings.STATIC_ROOT}/{path}", dirs_exist_ok=True)
-    # images4display/ is gitignored and absent on deployments: serve the
-    # display page without promo images instead of crashing on listdir.
-    img_list = [ path+i for i in  os.listdir(path) if not i.endswith('.md')] if os.path.exists(f"./{path}") else []
-    
+    # images4display/ is collected into STATIC_ROOT by collectstatic at build
+    # time (it is tracked in git, despite the .gitignore entry). No runtime
+    # disk writes here: serverless filesystems (Vercel) are read-only.
+    img_list = _display_images()
     return render(request,'retailDisplay.html',context={"store_name":settings.STORE_NAME, "display_images":img_list})
 
 
