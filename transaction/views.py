@@ -7,7 +7,6 @@ from .models import transaction
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django import forms
-from escpos.printer import Usb
 
 class DateSelector(forms.Form):
     start_date = forms.DateField(widget = forms.SelectDateWidget())
@@ -29,7 +28,12 @@ class printer:
                 printer.printReceipt(printText, times+1)
 
     def connectPrinter():
-        try : printer.printer = Usb(eval(settings.PRINTER_VENDOR_ID),eval(settings.PRINTER_PRODUCT_ID))
+        try:
+            # Imported lazily: USB receipt printing is unavailable on hosts
+            # like Vercel, and a top-level import here would crash the whole
+            # URLconf (urls.py imports this module) and take down every route.
+            from escpos.printer import Usb
+            printer.printer = Usb(eval(settings.PRINTER_VENDOR_ID),eval(settings.PRINTER_PRODUCT_ID))
         except Exception as e:
             print(e)
             printer.printer = None
