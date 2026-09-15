@@ -10,6 +10,8 @@ DEBUG = False
 SECRET_KEY = os.getenv('SECRET_KEY_DEV', 'django_dev_secret_key_online-retail-pos-1234')
 
 import_env_hosts = os.getenv('ALLOWED_HOSTS', '')
+# No module-level print() here: Vercel's Django integration parses stdout of
+# settings introspection as JSON, and any print pollutes it and fails the build.
 ALLOWED_HOSTS = [ip_address, '127.0.0.1', 'localhost'] \
     + [h.strip() for h in import_env_hosts.split(',') if h.strip()]
 
@@ -19,10 +21,6 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 import_env_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
 CSRF_TRUSTED_ORIGINS = [f"http://{ip_address}", "http://127.0.0.1", "http://localhost:8080"] \
     + [o.strip() for o in import_env_origins.split(',') if o.strip()]
-
-print(f"Connect on this address:") # get the ip address from the command line.
-print(f"http://127.0.0.1:8000")
-print(f"{ip_address}:8000 \nDocker Container may have different IP, VPN will screw IP address as well\nMight not work on those cases")
 
 # # Database sqllite
 # # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
@@ -55,8 +53,6 @@ database_dict = {
                 }
     }
 }
-
-print(f"Database configuration is set to {database_dict[os.getenv('NAME_OF_DATABASE', 'sqlite')]['ENGINE']}")
 
 DATABASES = {
     'default':  database_dict[os.getenv('NAME_OF_DATABASE', 'sqlite')]
