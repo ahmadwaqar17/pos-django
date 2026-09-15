@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "python manage.py migrate --no-input && python manage.py seed_demo && python manage.py collectstatic --no-input"
+  "buildCommand": "python manage.py migrate --no-input && python manage.py seed_demo && python manage.py seed_demo --sales && python manage.py collectstatic --no-input"
 }

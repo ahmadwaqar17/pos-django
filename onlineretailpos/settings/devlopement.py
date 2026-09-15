@@ -40,6 +40,9 @@ database_dict = {
                 # Neon/Supabase require TLS; 'prefer' also works with plain local postgres
                 'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
             },
+            # Required for Supabase/Neon transaction-pooler ports (e.g. 6543):
+            # server-side cursors break under pgbouncer transaction pooling.
+            'DISABLE_SERVER_SIDE_CURSORS': os.getenv('DB_DISABLE_SERVER_SIDE_CURSORS', '') in ('1', 'true', 'yes'),
         } ,
     'mysql': {
             'ENGINE': 'django.db.backends.mysql',

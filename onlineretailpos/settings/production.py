@@ -34,6 +34,8 @@ if os.getenv('NAME_OF_DATABASE', 'sqlite') == 'postgres':
                 # Neon/Supabase require TLS; 'prefer' also works locally
                 'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
             },
+            # Required for Supabase/Neon transaction-pooler ports (e.g. 6543)
+            'DISABLE_SERVER_SIDE_CURSORS': os.getenv('DB_DISABLE_SERVER_SIDE_CURSORS', '') in ('1', 'true', 'yes'),
         }
     }
 else:

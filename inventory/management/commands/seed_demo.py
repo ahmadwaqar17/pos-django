@@ -8,8 +8,13 @@ Idempotent: safe to run repeatedly (get_or_create everywhere). Run with:
     python manage.py seed_demo --products # products only
     python manage.py seed_demo --users    # users only
 """
+import random
+from datetime import datetime, timedelta
 from decimal import Decimal
 
+import pytz
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
@@ -49,15 +54,18 @@ class Command(BaseCommand):
         group = parser.add_mutually_exclusive_group()
         group.add_argument("--users", action="store_true", help="Only seed users")
         group.add_argument("--products", action="store_true", help="Only seed products")
+        group.add_argument("--sales", action="store_true", help="Only seed sample sales history (12 past days)")
 
     def handle(self, *args, **options):
-        seed_users = not options["products"]
-        seed_products = not options["users"]
+        seed_users = not (options["products"] or options["sales"])
+        seed_products = not (options["users"] or options["sales"])
 
         if seed_users:
             self._seed_users()
         if seed_products:
             self._seed_products()
+        if options["sales"]:
+            self._seed_sales()
 
     def _seed_users(self):
         User = get_user_model()
@@ -110,3 +118,82 @@ class Command(BaseCommand):
             f"  products: {created_count} created, "
             f"{len(PRODUCTS) - created_count} already existed"
         )
+
+    def _seed_sales(self):
+        """Create ~40 realistic past transactions (12 days) so the sales and
+        department dashboards, transactions list, and receipts have data.
+        Skips everything if the transaction table already has rows."""
+        from transaction.models import transaction
+
+        if transaction.objects.exists():
+            self.stdout.write("  sales: transactions already exist, skipping")
+            return
+
+        User = get_user_model()
+        staff_user = User.objects.filter(username="staff").first() or User.objects.filter(is_superuser=True).first()
+        products = list(product.objects.all())
+        if not products:
+            self.stdout.write("  sales: no products found, run --products first")
+            return
+
+        payment_types = ["CASH", "CASH", "DEBIT/CREDIT", "DEBIT/CREDIT", "EBT"]
+        today = datetime.now().date()
+        created = 0
+        for days_ago in range(1, 13):
+            for _ in range(random.randint(2, 5)):
+                # 1-4 random line items per sale
+                chosen = random.sample(products, k=random.randint(1, 4))
+                cart = {}
+                for p in chosen:
+                    qty = random.randint(1, 3)
+                    tax_v = float(p.sales_price) * qty * (float(p.tax_category.tax_percentage) / 100)
+                    dep_v = float(p.deposit_category.deposit_value) * qty
+                    cart[p.barcode] = {
+                        "barcode": p.barcode,
+                        "name": p.name,
+                        "price": str(p.sales_price),
+                        "quantity": qty,
+                        "tax_value": f"{tax_v:.2f}",
+                        "deposit_value": f"{dep_v:.2f}",
+                        "line_total": f"{float(p.sales_price) * qty + tax_v + dep_v:.2f}",
+                    }
+                total = round(sum(float(v["line_total"]) for v in cart.values()), 2)
+                payment = random.choice(payment_types)
+                pay_value = total if payment != "CASH" else random.choice([1000, 2000, 5000, total])
+                pay_value = max(pay_value, total)
+
+                stamp = datetime(today.year, today.month, today.day) - timedelta(
+                    days=days_ago, hours=random.randint(9, 20), minutes=random.randint(0, 59),
+                )
+                # Naive on purpose: transaction.save() localizes to US/Eastern
+                # itself (same contract as addTransaction).
+                transaction_id = stamp.strftime('%Y%m%d%H%M%S') + f"{random.randint(0, 999999):06d}"
+                receipt = (
+                    f"{'='*32}\n{settings.STORE_NAME.center(32)}\n"
+                    f"{settings.STORE_ADDRESS.center(32)}\n{'='*32}\n"
+                    f"{stamp.strftime('%d %b %Y  %I:%M %p').center(32)}\n"
+                    f"{('Receipt #' + transaction_id[:14]).center(24)}\n{'-'*32}\n"
+                )
+                for barcode, v in cart.items():
+                    receipt += f" {v['name'][:20]:<20} x{v['quantity']:<3} PKR {v['price']}\n"
+                receipt += (
+                    f"{'-'*32}\n {'TOTAL:':<15}PKR {total:>8.2f}\n"
+                    f" {payment:<15}PKR {pay_value:>8.2f}\n{'='*32}\nThank You".center(32) + f"\n{'='*32}"
+                )
+
+                txn = transaction.objects.create(
+                    transaction_id=transaction_id,
+                    transaction_dt=stamp,
+                    user=staff_user,
+                    total_sale=Decimal(str(total)),
+                    sub_total=Decimal(str(round(total - 0, 2))),
+                    tax_total=Decimal("0.00"),
+                    deposit_total=Decimal("0.00"),
+                    payment_type=payment,
+                    receipt=receipt,
+                    products=str([dict(v, barcode=v["barcode"]) for v in cart.values()]),
+                )
+                # transaction.save() auto-creates productTransaction rows and
+                # decrements product stock.
+                created += 1
+        self.stdout.write(f"  sales: {created} transactions created over the last 12 days")
