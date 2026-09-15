@@ -1,6 +1,7 @@
 from .base import *
 import os
 from dotenv import load_dotenv
+import dj_database_url
 load_dotenv()
 
 DEBUG = False
@@ -20,24 +21,40 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', '')
 # The app is served behind HTTPS-terminating proxies (Vercel, Fly, ngrok, etc.)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Database: sqlite by default, postgres when NAME_OF_DATABASE=postgres
-if os.getenv('NAME_OF_DATABASE', 'sqlite') == 'postgres':
+# Database: sqlite by default; DATABASE_URL (single connection string)
+# or NAME_OF_DATABASE=postgres with discrete DB_* vars for postgres.
+if os.getenv('DATABASE_URL') or os.getenv('NAME_OF_DATABASE', 'sqlite') == 'postgres':
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'OnlineRetailPOS'),
-            'USER': os.getenv('DB_USERNAME'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', ''),
-            'OPTIONS': {
-                # Neon/Supabase require TLS; 'prefer' also works locally
-                'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
-            },
-            # Required for Supabase/Neon transaction-pooler ports (e.g. 6543)
-            'DISABLE_SERVER_SIDE_CURSORS': os.getenv('DB_DISABLE_SERVER_SIDE_CURSORS', '') in ('1', 'true', 'yes'),
-        }
+        'default': (
+            dj_database_url.config(
+                default=os.getenv('DATABASE_URL', ''),
+                conn_max_age=60,
+                ssl_require=(os.getenv('DB_SSLMODE', 'prefer') == 'require'),
+            )
+            if os.getenv('DATABASE_URL') else
+            {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.getenv('DB_NAME', 'OnlineRetailPOS'),
+                'USER': os.getenv('DB_USERNAME'),
+                'PASSWORD': os.getenv('DB_PASSWORD'),
+                'HOST': os.getenv('DB_HOST', 'localhost'),
+                'PORT': os.getenv('DB_PORT', ''),
+                'OPTIONS': {
+                    # Neon/Supabase require TLS; 'prefer' also works locally
+                    'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
+                },
+                # Required for Supabase/Neon transaction-pooler ports (e.g. 6543)                    'DISABLE_SERVER_SIDE_CURSORS': os.getenv('DB_DISABLE_SERVER_SIDE_CURSORS', '') in ('1', 'true', 'yes'),
+                'CONN_MAX_AGE': 60,
+            }
+        )
     }
+    # Transaction poolers (Supabase ':6543' / '*-pooler*' hosts) break
+    # server-side cursors; force them off when we detect one.
+    _db = DATABASES['default']
+    _host = str(_db.get('HOST') or '')
+    _port = str(_db.get('PORT') or '')
+    if 'pooler.supabase' in _host or _host.endswith('-pooler') or _port == '6543':
+        _db['DISABLE_SERVER_SIDE_CURSORS'] = True
 else:
     DATABASES = {
         'default': {

@@ -2,6 +2,7 @@ from .base import *
 import os, socket
 # from sshtunnel import SSHTunnelForwarder
 from dotenv import load_dotenv
+import dj_database_url
 load_dotenv()
 
 ip_address = socket.gethostbyname(socket.gethostname())
@@ -24,12 +25,37 @@ CSRF_TRUSTED_ORIGINS = [f"http://{ip_address}", "http://127.0.0.1", "http://loca
 
 # # Database sqllite
 # # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
+
+
+def _tune_pooler(db_cfg):
+    """Transaction poolers (Supabase ':6543' / '*-pooler*' hosts, Neon pooler)
+    break server-side cursors; force them off when we detect one."""
+    if db_cfg.get('ENGINE') == 'django.db.backends.postgresql':
+        host = str(db_cfg.get('HOST') or '')
+        port = str(db_cfg.get('PORT') or '')
+        if 'pooler.supabase' in host or host.endswith('-pooler') or port == '6543':
+            db_cfg['DISABLE_SERVER_SIDE_CURSORS'] = True
+    return db_cfg
+
+
 database_dict = {
     'sqlite' :  {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3', 
         } ,
-    'postgres' : {
+    'postgres' : (
+            # One-variable setup: DATABASE_URL wins when present.
+            # Format: postgresql://user:password@host:port/dbname
+            # NOTE: URL-encode special characters in the password
+            # (e.g. @ -> %40). Supabase example in the dashboard's
+            # connection string already comes URL-encoded.
+            dj_database_url.config(
+                default=os.getenv('DATABASE_URL', ''),
+                conn_max_age=60,
+                ssl_require=(os.getenv('DB_SSLMODE', 'prefer') == 'require'),
+            )
+            if os.getenv('DATABASE_URL') else
+            {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('DB_NAME', "OnlineRetailPOS"),  # Use environment variable DB_NAME, defaulting to 'default_db_name'
             'USER': os.getenv('DB_USERNAME'),  # Use environment variable DB_USERNAME
@@ -43,7 +69,9 @@ database_dict = {
             # Required for Supabase/Neon transaction-pooler ports (e.g. 6543):
             # server-side cursors break under pgbouncer transaction pooling.
             'DISABLE_SERVER_SIDE_CURSORS': os.getenv('DB_DISABLE_SERVER_SIDE_CURSORS', '') in ('1', 'true', 'yes'),
-        } ,
+            'CONN_MAX_AGE': 60,
+        }
+    ) ,
     'mysql': {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': os.getenv('DB_NAME', "OnlineRetailPOS"),  # Use environment variable DB_NAME
@@ -58,7 +86,7 @@ database_dict = {
 }
 
 DATABASES = {
-    'default':  database_dict[os.getenv('NAME_OF_DATABASE', 'sqlite')]
+    'default':  _tune_pooler(database_dict[os.getenv('NAME_OF_DATABASE', 'sqlite')])
     
 }
 
