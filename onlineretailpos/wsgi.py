@@ -15,3 +15,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'onlineretailpos.settings.devlop
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 application = get_wsgi_application()
+
+# Some PaaS runtimes (Vercel's Django preset among them) look for `app`.
+app = application
