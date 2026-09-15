@@ -1,8 +1,11 @@
 Django==4.1.13
 django_admin_rangefilter==0.8.6
 django_colorfield==0.7.2
-django_import_export==2.8.0
-import_export==0.2.67.dev6
+# django_import_export REMOVED: requires tablib[ods] -> odfpy, which ships no
+# binary wheel and breaks build-locked hosts (Vercel: "uv sync --no-build").
+# Admin falls back to plain ModelAdmin without import/export buttons when
+# absent. Install locally if you need spreadsheet import/export:
+#   pip install django_import_export==2.8.0 import_export==0.2.67.dev6
 pandas==2.2.3
 plotly==5.24.1
 python-dotenv==0.21.0

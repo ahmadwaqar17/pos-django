@@ -25,6 +25,8 @@ CART_SESSION_ID = 'cart'
 
 
 # Application definition
+import importlib
+
 INSTALLED_APPS = [
     # "admin_interface", #Interface if Admin Port Customization is needed
     "colorfield",
@@ -39,10 +41,17 @@ INSTALLED_APPS = [
     'inventory',
     'transaction',
     'cart',
-    'import_export',
-    'rangefilter',
-    'django_admin_logs',
 ]
+
+# Optional admin convenience apps: django-import-export needs tablib[ods]
+# -> odfpy, which has no binary wheel and cannot install on build-locked
+# hosts (e.g. Vercel). They activate only when installed.
+for _optional_app in ('import_export', 'rangefilter', 'django_admin_logs'):
+    try:
+        importlib.import_module(_optional_app)
+        INSTALLED_APPS.append(_optional_app)
+    except ImportError:
+        pass
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
