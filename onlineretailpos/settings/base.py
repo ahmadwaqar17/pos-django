@@ -41,6 +41,9 @@ INSTALLED_APPS = [
     'inventory',
     'transaction',
     'cart',
+    # Loads last so its ready() runs after django.contrib.auth's, letting it
+    # disconnect the last_login signal in read-only-DB mode (see apps.py).
+    'onlineretailpos.apps.OnlineRetailPOSConfig',
 ]
 
 # Optional admin convenience apps: django-import-export needs tablib[ods]
@@ -52,6 +55,18 @@ for _optional_app in ('import_export', 'rangefilter', 'django_admin_logs'):
         INSTALLED_APPS.append(_optional_app)
     except ImportError:
         pass
+
+
+# Read-only-filesystem hosts (Vercel serverless functions): the sqlite file
+# baked into the build cannot be written. Keep login working by storing
+# sessions in signed cookies (browser-side, no DB write) and skipping the
+# last_login update. Activated automatically on Vercel, or force it with
+# READ_ONLY_DB=1 in the environment. NOTE: checkout/inventory writes still
+# need a writable database (sqlite locally, or Postgres in the cloud).
+if os.getenv('VERCEL') or os.getenv('READ_ONLY_DB', '').lower() in ('1', 'true', 'yes'):
+    SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+    # The update_last_login signal is disconnected in
+    # onlineretailpos/apps.py ready(), which runs after auth's ready().
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
