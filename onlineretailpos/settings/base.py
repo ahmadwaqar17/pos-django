@@ -41,8 +41,6 @@ INSTALLED_APPS = [
     'inventory',
     'transaction',
     'cart',
-    # Loads last so its ready() runs after django.contrib.auth's, letting it
-    # disconnect the last_login signal in read-only-DB mode (see apps.py).
     'onlineretailpos.apps.OnlineRetailPOSConfig',
 ]
 
@@ -57,21 +55,9 @@ for _optional_app in ('import_export', 'rangefilter', 'django_admin_logs'):
         pass
 
 
-# Read-only-filesystem hosts (Vercel serverless functions) running the baked-in
-# sqlite file: keep login working with signed-cookie sessions (no DB write),
-# skip the last_login update, and let views stash completed sales in the
-# session. A real database (NAME_OF_DATABASE=postgres) is writable, so it gets
-# normal DB-backed sessions and persisted transactions.
-_using_baked_sqlite = os.getenv('NAME_OF_DATABASE', 'sqlite') == 'sqlite'
-_on_read_only_host = (os.getenv('VERCEL')
-                      or os.getenv('READ_ONLY_DB', '').lower() in ('1', 'true', 'yes'))
-if _using_baked_sqlite and _on_read_only_host:
-    SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
-    # Flag for views: the sqlite file cannot be written, so completed sales
-    # are kept in the (cookie) session instead of the DB.
-    READ_ONLY_DATABASES = True
-    # The update_last_login signal is disconnected in
-    # onlineretailpos/apps.py ready(), which runs after auth's ready().
+# Sessions and sales always use the database (default DB-backed sessions).
+# Serverless hosts like Vercel have read-only filesystems, so deploying there
+# requires an external database (NAME_OF_DATABASE=postgres / DATABASE_URL).
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
