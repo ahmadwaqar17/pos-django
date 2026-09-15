@@ -140,7 +140,14 @@ class Command(BaseCommand):
         today = datetime.now().date()
         created = 0
         for days_ago in range(1, 13):
+            sale_day = today - timedelta(days=days_ago)
+            # Sale timestamps between 09:00 and 20:59 local time on that day,
+            # so the 12-day window ends YESTERDAY (populating the dashboard's
+            # "Yesterday" card) — never today.
             for _ in range(random.randint(2, 5)):
+                stamp = datetime.combine(
+                    sale_day, datetime.min.time()
+                ) + timedelta(hours=random.randint(9, 20), minutes=random.randint(0, 59))
                 # 1-4 random line items per sale
                 chosen = random.sample(products, k=random.randint(1, 4))
                 cart = {}
@@ -162,9 +169,6 @@ class Command(BaseCommand):
                 pay_value = total if payment != "CASH" else random.choice([1000, 2000, 5000, total])
                 pay_value = max(pay_value, total)
 
-                stamp = datetime(today.year, today.month, today.day) - timedelta(
-                    days=days_ago, hours=random.randint(9, 20), minutes=random.randint(0, 59),
-                )
                 # Naive on purpose: transaction.save() localizes to US/Eastern
                 # itself (same contract as addTransaction).
                 transaction_id = stamp.strftime('%Y%m%d%H%M%S') + f"{random.randint(0, 999999):06d}"
