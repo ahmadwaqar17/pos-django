@@ -9,8 +9,16 @@ ip_address = socket.gethostbyname(socket.gethostname())
 DEBUG = False
 SECRET_KEY = os.getenv('SECRET_KEY_DEV', 'django_dev_secret_key_online-retail-pos-1234')
 
-ALLOWED_HOSTS = [ip_address,'127.0.0.1']
-CSRF_TRUSTED_ORIGINS = [f"http://{ip_address}","http://127.0.0.1"]
+import_env_hosts = os.getenv('ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = [ip_address, '127.0.0.1', 'localhost'] \
+    + [h.strip() for h in import_env_hosts.split(',') if h.strip()]
+
+# Vercel terminates HTTPS at their proxy; trust their forwarded-proto header
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+import_env_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+CSRF_TRUSTED_ORIGINS = [f"http://{ip_address}", "http://127.0.0.1", "http://localhost:8080"] \
+    + [o.strip() for o in import_env_origins.split(',') if o.strip()]
 
 print(f"Connect on this address:") # get the ip address from the command line.
 print(f"http://127.0.0.1:8000")
@@ -30,6 +38,10 @@ database_dict = {
             'PASSWORD': os.getenv('DB_PASSWORD'),  # Use environment variable DB_PASSWORD
             'HOST': os.getenv('DB_HOST', "localhost"),  # Use environment variable DB_HOST
             'PORT': os.getenv('DB_PORT', ''),  # By default, PostgreSQL uses port 5432
+            'OPTIONS': {
+                # Neon/Supabase require TLS; 'prefer' also works with plain local postgres
+                'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
+            },
         } ,
     'mysql': {
             'ENGINE': 'django.db.backends.mysql',

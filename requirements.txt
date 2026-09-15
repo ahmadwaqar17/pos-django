@@ -3,8 +3,8 @@ django_admin_rangefilter==0.8.6
 django_colorfield==0.7.2
 django_import_export==2.8.0
 import_export==0.2.67.dev6
-pandas==1.4.3
-plotly==5.10.0
+pandas==2.2.3
+plotly==5.24.1
 python-dotenv==0.21.0
 python_dateutil==2.8.2
 pytz==2022.1
@@ -13,6 +13,7 @@ django-jquery==3.1.0
 django-mathfilters==1.0.0
 django-admin-logs==1.0.2
 python-escpos==2.2.0
-mysqlclient==2.2.0
-psycopg2==2.9.9 
+psycopg2-binary==2.9.9
+# mysqlclient==2.2.0  # NOT deployable to Vercel (needs MySQL system libs).
+#   If you use the docker-compose mysql path, run manually: pip install mysqlclient==2.2.0
 # sshtunnel==0.4.0
