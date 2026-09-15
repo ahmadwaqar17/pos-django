@@ -127,7 +127,9 @@ def retail_display(request,values=None):
     path="images4display/"  # insert the path to your directory   
     if os.path.exists(f"./{path}"):
         shutil.copytree(f"./{path}", f"{settings.STATIC_ROOT}/{path}", dirs_exist_ok=True)
-    img_list = [ path+i for i in  os.listdir(path) if not i.endswith('.md')]
+    # images4display/ is gitignored and absent on deployments: serve the
+    # display page without promo images instead of crashing on listdir.
+    img_list = [ path+i for i in  os.listdir(path) if not i.endswith('.md')] if os.path.exists(f"./{path}") else []
     
     return render(request,'retailDisplay.html',context={"store_name":settings.STORE_NAME, "display_images":img_list})
 
@@ -139,7 +141,12 @@ def report_regular(request,start_date,end_date):
     end_date = datetime.strptime(end_date,"%Y-%m-%d").date()
     df = pd.DataFrame(productTransaction.objects.filter(transaction_date_time__date__range = (start_date,end_date)).order_by('-transaction_date_time').values())
     if not df.shape[0]:
-        return redirect("/")
+        # No sales in the period: show the report page with a note rather
+        # than silently bouncing to the home dashboard.
+        return render(request,"reportsRegular.html", context={
+                "table_html":"<p class=\"text-center text-gray-500\">No transactions found in the selected period.</p>",
+                "start_date":start_date,"end_date":end_date,"store_name":settings.STORE_NAME,
+                })
 
     df['transaction_date_time'] = df['transaction_date_time'].apply(lambda x: x.astimezone(timezone) )
     df['date'] = df['transaction_date_time'].dt.date
@@ -174,20 +181,20 @@ def report_regular(request,start_date,end_date):
 
 @login_required(login_url="/user/login/")
 def dashboard_products(request):
-    try:
-        number = 10
-        context = {}
-        today_date=datetime.now().date()
-        last_30_date = datetime.now().date() - timedelta(30)
-        df = pd.DataFrame(productTransaction.objects.filter(transaction_date_time__date__range = (last_30_date,today_date)).order_by('-transaction_date_time').values())
-        context['products_group'] = {}
-        for i, df in df.groupby('department'):
-            context['products_group'][i] = df.groupby(["barcode","name"])[["qty"]].sum().reset_index().sort_values(by=["qty"],ascending=False).iloc[:number].to_dict('records')
+    context = {}
+    number = 10
+    today_date=datetime.now().date()
+    last_30_date = datetime.now().date() - timedelta(30)
+    df = pd.DataFrame(productTransaction.objects.filter(transaction_date_time__date__range = (last_30_date,today_date)).order_by('-transaction_date_time').values())
+    # Empty when no sales yet (e.g. fresh deployments): show an empty
+    # top-sellers section instead of bouncing the user back to the register.
+    context['products_group'] = {}
+    if not df.empty:
+        for dept, dept_df in df.groupby('department'):
+            context['products_group'][dept] = dept_df.groupby(["barcode","name"])[["qty"]].sum().reset_index().sort_values(by=["qty"],ascending=False).iloc[:number].to_dict('records')
 
-        context['low_inventory_products'] = product.objects.all().order_by('qty').values('barcode','name','qty')[:50]
-        context['number'] = number
-    except:
-        return redirect("/register/")
+    context['low_inventory_products'] = product.objects.all().order_by('qty').values('barcode','name','qty')[:50]
+    context['number'] = number
     return render(request,"productsDashboard.html",context=context)
 
 
@@ -255,42 +262,55 @@ def dashboard_department(request):
 def dashboard_sales(request):
     context = {}
     today_date =  datetime.combine(datetime.now().date(), datetime.min.time())
-    try:
-        df = pd.DataFrame(transaction.objects.filter(transaction_dt__date__gte = datetime(today_date.year, 1,1)).values())
-        df['transaction_dt'] = df['transaction_dt'].apply(lambda x: x.astimezone(timezone) )
-        df['date'] = df['transaction_dt'].dt.date
-        df_date = df.groupby('date')['total_sale'].sum()
-        df_date.index = pd.to_datetime(df_date.index)
-        if not df_date.get(datetime(today_date.year, 1,1)):df_date[datetime(today_date.year, 1,1)] = 0
-        if not df_date.get(today_date): df_date[today_date] = 0
-        df_date = df_date.asfreq('D',fill_value=0)
+    df = pd.DataFrame(transaction.objects.filter(transaction_dt__date__gte = datetime(today_date.year, 1,1)).values())
+    # No sales yet (fresh/read-only deployments): render the dashboard with
+    # zeroed stats and an empty chart instead of redirecting to the register.
+    if df.empty:
+        empty_fig = px.bar(pd.DataFrame({'Date': [], 'Total Sales': []}), x='Date', y='Total Sales', template="plotly_white")
+        empty_fig.update_xaxes(title="Days")
+        empty_fig.update_yaxes(title="Total Sales")
+        empty_fig.update_layout(margin = dict(b=10,pad=0,t=10,r=0,l=0), )
+        context['30_day_sales_graph'] = po.plot(empty_fig, auto_open=False, output_type='div',config= {'displayModeBar': False},include_plotlyjs=False)
+        context['day_payment_graph'] = ""
+        context['today_total_sales'] = 0
+        context['30_Days_Avg_Sales'] = 0
+        context['30_Days_Total_Sales'] = 0
+        context["add_info"] = {key: 0 for key in (
+            "Yesterday's Total Sales", "Last 7 Days Avg Sales", "WTD Total Sales",
+            "Last Week Total Sales", "MTD Total Sales", "YTD Total Sales")}
+        return render(request,"salesDashboard.html",context=context)
 
-        context['today_total_sales'] = df_date.get(today_date)
-        context["add_info"] = {}
-        context["add_info"]['Yesterday\'s Total Sales'] = df_date.get(today_date-timedelta(1))
-        context["add_info"]['Last 7 Days Avg Sales'] = df_date[df_date.index>today_date-timedelta(7)].sum()/7
-        context['30_Days_Avg_Sales'] = df_date[df_date.index>today_date-timedelta(30)].mean()
-        context['30_Days_Total_Sales'] = df_date[df_date.index>today_date-timedelta(30)].sum()
-        context["add_info"]['WTD Total Sales'] = df_date.resample('W').sum()[-1]
-        context["add_info"]['Last Week Total Sales'] = df_date.resample('W').sum()[-2]
-        context["add_info"]['MTD Total Sales'] = df_date.resample('M').sum()[-1]
-        context["add_info"]['YTD Total Sales'] = df_date.resample('Y').sum()[-1]
+    df['transaction_dt'] = df['transaction_dt'].apply(lambda x: x.astimezone(timezone) )
+    df['date'] = df['transaction_dt'].dt.date
+    df_date = df.groupby('date')['total_sale'].sum()
+    df_date.index = pd.to_datetime(df_date.index)
+    if not df_date.get(datetime(today_date.year, 1,1)):df_date[datetime(today_date.year, 1,1)] = 0
+    if not df_date.get(today_date): df_date[today_date] = 0
+    df_date = df_date.asfreq('D',fill_value=0)
 
-        # print(df_date.resample('W').sum())
-        fig = px.bar(x= df_date.index,  y=df_date,text_auto=True,barmode='group',template="plotly_white" ,labels={"x":"Date","y":"Total Sales"})
-        fig.update_xaxes(title="Days", tickformat = '%a,%d/%m',tickangle=-90)
-        fig.update_yaxes(title="Total Sales")
-        fig.update_layout( margin = dict(b=10,pad=0,t=10,r=0,l=0), )
-        div = po.plot(fig, auto_open=False, output_type='div',config= {'displayModeBar': False},include_plotlyjs=False)
-        context['30_day_sales_graph'] = div
+    context['today_total_sales'] = df_date.get(today_date)
+    context["add_info"] = {}
+    context["add_info"]['Yesterday\'s Total Sales'] = df_date.get(today_date-timedelta(1))
+    context["add_info"]['Last 7 Days Avg Sales'] = df_date[df_date.index>today_date-timedelta(7)].sum()/7
+    context['30_Days_Avg_Sales'] = df_date[df_date.index>today_date-timedelta(30)].mean()
+    context['30_Days_Total_Sales'] = df_date[df_date.index>today_date-timedelta(30)].sum()
+    context["add_info"]['WTD Total Sales'] = df_date.resample('W').sum()[-1]
+    context["add_info"]['Last Week Total Sales'] = df_date.resample('W').sum()[-2]
+    context["add_info"]['MTD Total Sales'] = df_date.resample('M').sum()[-1]
+    context["add_info"]['YTD Total Sales'] = df_date.resample('Y').sum()[-1]
 
-        df_day_payment = df[df['date'] == today_date.date() ].groupby('payment_type')['total_sale'].sum().reset_index()
-        fig2 = px.pie(df_day_payment,values='total_sale',names='payment_type',template="plotly_white",height=195 ,
-            labels={"payment_type":"Payment Type","total_sale":"Total Sales"})
-        fig2.update_layout( margin = dict(b=10,pad=0,t=10), )
-        context['day_payment_graph'] = po.plot(fig2, auto_open=False, output_type='div',config= {'displayModeBar': False},include_plotlyjs=False)
-    except:
-        return redirect("/register/")
+    fig = px.bar(x= df_date.index,  y=df_date,text_auto=True,barmode='group',template="plotly_white" ,labels={"x":"Date","y":"Total Sales"})
+    fig.update_xaxes(title="Days", tickformat = '%a,%d/%m',tickangle=-90)
+    fig.update_yaxes(title="Total Sales")
+    fig.update_layout( margin = dict(b=10,pad=0,t=10,r=0,l=0), )
+    div = po.plot(fig, auto_open=False, output_type='div',config= {'displayModeBar': False},include_plotlyjs=False)
+    context['30_day_sales_graph'] = div
+
+    df_day_payment = df[df['date'] == today_date.date() ].groupby('payment_type')['total_sale'].sum().reset_index()
+    fig2 = px.pie(df_day_payment,values='total_sale',names='payment_type',template="plotly_white",height=195 ,
+        labels={"payment_type":"Payment Type","total_sale":"Total Sales"})
+    fig2.update_layout( margin = dict(b=10,pad=0,t=10), )
+    context['day_payment_graph'] = po.plot(fig2, auto_open=False, output_type='div',config= {'displayModeBar': False},include_plotlyjs=False)
     return render(request,"salesDashboard.html",context=context)
 
 
