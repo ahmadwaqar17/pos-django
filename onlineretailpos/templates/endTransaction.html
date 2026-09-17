@@ -9,41 +9,75 @@ Ending Transaction | Online Retail POS
 
 
 {% block content %}
-<div class="container h5 badge-success text-uppercase text-center p-4  m-0" >
-    Transaction Successfully Saved!!</div>
-<div class="row container  text-uppercase text-center text-danger mt-5 p-0 pl-4">
-    This is a online register and is not connected to a Cash-Drawer or a Card-Machine,
-             Please make sure that you are charging the customer for this transaction. 
-             POS System has stored this transaction for record keeping.
-             <br>&nbsp;<br>Thank You - Online Retail POS System
-</div>
-<div class="row container p-0 ">
-    <div class="col-lg-8" style="justify-content: center;text-align:center">
-        <div class="container pt-5"  >
-            <div class="badge-dark text-center p-0 m-5" >
-                {{ change|safe }}
-            </div>
-        </div>
-        <div class="container p-3 mt-5 pt-5" style="justify-content: center;">
-            <a href="{% url 'register' %}"><button class="btn-lg btn-primary" style="height: 100px; width: 250px;">Back to Register</button></a>
+<div class="container">
+    <div class="pos-success-banner mt-4">
+        <span class="pos-success-check"><i class="fas fa-check"></i></span>
+        <div>
+            <div class="font-weight-bold h5 mb-0">Transaction Successfully Saved!</div>
+            <small style="opacity:.85;">Stored in the record — a receipt has been generated below.</small>
         </div>
     </div>
-    <div class="col-lg-4" style="text-align:center;padding-top: 2%;">
-        <div class="card shadow-sm mt-3 mb-3">
-            <div class="card-body " id="receipt" style="padding:5%;">
-                <pre>{{ receipt|linebreaks }}</pre>
-                <div class="container rounded" style="justify-content: center;">
-                    <a href="/transaction_receipt{{request.path|cut:'/endTransaction'}}">
-                        <button class="btn-lg btn-secondary " style="width: 100%;">
-                            View Receipt 
-                        </button>
-                        </a>
+
+    <div class="alert alert-warning border-0 shadow-sm mt-3" style="border-radius:14px;font-weight:600;">
+        <i class="fas fa-exclamation-triangle mr-2"></i>
+        This is an online register and is not connected to a cash drawer or card machine.
+        Please make sure you charge the customer for this transaction — the POS has stored it for record keeping.
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 text-center">
+            <div class="card shadow-sm mt-3">
+                <div class="card-body p-4">
+                    {{ change|safe }}
+                </div>
+            </div>
+            <a href="{% url 'register' %}" class="btn btn-primary btn-lg mt-4 px-5" style="height:64px;min-width:240px;line-height:2.8;">
+                <i class="fas fa-cash-register mr-2"></i> Back to Register
+            </a>
+        </div>
+        <div class="col-lg-4 text-center">
+            <div class="pos-receipt-card mt-3 mb-3">
+                <div class="p-4" id="receipt" style="font-family:'Courier New', monospace;">
+                    <pre>{{ receipt|linebreaks }}</pre>
+                    <a href="/transaction_receipt{{request.path|cut:'/endTransaction'}}" class="btn btn-secondary w-100 mt-2" data-loading-text="Opening receipt…">
+                        <i class="fas fa-receipt mr-1"></i> View Receipt
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
-
-
+{% block script %}
+<style>
+    .pos-success-banner {
+        display: flex; align-items: center; gap: 1rem;
+        background: linear-gradient(135deg, var(--pos-success, #059669), var(--pos-success-dark, #047857));
+        color: #fff;
+        border-radius: 16px;
+        padding: 1.1rem 1.4rem;
+        box-shadow: 0 12px 28px -10px rgba(5, 150, 105, .55);
+    }
+    .pos-success-check {
+        width: 44px; height: 44px; flex: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .18);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem;
+    }
+    .pos-receipt-card {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 24px 64px -16px rgba(15, 23, 42, .3);
+        overflow: hidden;
+        position: relative;
+    }
+    .pos-receipt-card::before {
+        content: "";
+        display: block;
+        height: 6px;
+        background: linear-gradient(90deg, var(--pos-primary, #4f46e5), var(--pos-accent, #14b8a6));
+    }
+</style>
 {% endblock %}

@@ -22,7 +22,9 @@ db.sqlite3
 db.sqlite3-journal
 media/
 staticfiles/
-static/
+/static/
+# NOTE: /static/ is the collectstatic OUTPUT dir at the repo root (ignored).
+# onlineretailpos/static/ holds tracked source assets (theme.css, theme.js, vendor libs).
 
 # IDE
 .vscode/

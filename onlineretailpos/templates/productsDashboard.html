@@ -4,79 +4,143 @@ Products Dashboard | Online Retail POS
 {% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold  h5 text-gray-500 text-uppercase p-3 "> Products Dashboard </div>
+<div class="mb-0 font-weight-bold h5 text-gray-800 text-uppercase p-3 d-flex align-items-center">
+    <i class="fas fa-boxes mr-2 text-primary"></i> Products Dashboard
+</div>
 {% endblock %}
 
 
 {% block content %}
-<div class="row col-lg-12">
-        <div class="col-lg-6 mt-3">
-            <div class="card shadow">
-                <div class="card-header">
-                    <div class="font-weight-bold text-success h3 text-center p-3"> Top Best-Seller Products </div>
-                    <div> Top {{number}} Best Seller for Each Department.<br> Scroll to View.... </div> 
+<div class="row col-lg-12 p-0 m-0">
+    <div class="col-lg-6 mt-3">
+        <div class="card shadow h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="font-weight-bold text-success h6 mb-0 text-uppercase" style="letter-spacing:.05em;">
+                    <i class="fas fa-trophy mr-1"></i> Top Best-Sellers
                 </div>
-                <div class="card-body " style="height:490px;overflow-y: visible;overflow-x:scroll" >
-                    {% for dptmnt, value in products_group.items %}
-                        <div class="row pr-2 pb-3 mt-3">
-                            <div class="h4 text-light text-center badge-primary pb-2 pt-3 mb-0" style="width:100%"> {{ dptmnt }}</div>
-                            <div class="table-responsive">
-                                <table class="table table-bordered text-gray-800" width="100%" cellspacing="1" >
-                                    <thead class="table-dark" >
-                                        <tr class="col-lg-12 text-left" >
-                                            <th class="col-lg-4">Barcode</th>
-                                            <th class="col-lg-6">Name</th>
-                                            <th class="col-lg-2">Qty Sold</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for i in value %}
-                                        <tr>
-                                            <td>{{ i.barcode }}</td>
-                                            <td>{{ i.name }}</td>
-                                            <td>{{ i.qty }}</td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
+                <span class="badge badge-light border">Top {{ number }} per department</span>
             </div>
-        </div>
-        <div class="col-lg-6 mt-3">
-            <div class="card shadow">
-                <div class="card-header">
-                    <div class="font-weight-bold text-danger h3 text-center p-3"> Low Inventory Products </div>
-                    <div> Top 50 Products that are low in inventory or is quantity is wrong. Please take a look into it. </div> 
-                </div>
-                <div class="card-body" >
-                    <table class="table  mb-0 pl-2" width="100%" cellspacing="1" >
-                        <thead>
-                            <tr class="col-lg-12 text-left badge-dark" >
-                                <th class="col-lg-4">Barcode</th>
-                                <th class="col-lg-6">Name</th>
-                                <th class="col-lg-2">Inv. Qty</th>
-                            </tr>
-                        </thead>
-                    </table>
-                    <div class="table-responsive " style="height:400px;overflow-y: visible;overflow-x:scroll">
-                        <table class="table table-bordered table-hover pl-2" width="100%" cellspacing="1" >
+            <div class="card-body" style="height:490px;overflow-y:auto;">
+                {% for dptmnt, value in products_group.items %}
+                <div class="mb-4">
+                    <div class="pos-dept-chip mb-2">
+                        <i class="fas fa-tags"></i> {{ dptmnt }}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm" width="100%" cellspacing="1">
+                            <thead>
+                                <tr>
+                                    <th style="width:14%;">#</th>
+                                    <th>Barcode</th>
+                                    <th>Name</th>
+                                    <th class="text-right">Qty Sold</th>
+                                </tr>
+                            </thead>
                             <tbody>
-                                {% for i in low_inventory_products %}
-                                <tr class="col-lg-12">
-                                    <td class="col-lg-4" >{{ i.barcode }}</td>
-                                    <td class="col-lg-6" >{{ i.name }}</td>
-                                    <td class="col-lg-2" >{{ i.qty }}</td>
-                                 </tr>
+                                {% for i in value %}
+                                <tr>
+                                    <td>
+                                        {% if forloop.counter0 == 0 %}<span class="pos-medal pos-medal-gold">1</span>
+                                        {% elif forloop.counter0 == 1 %}<span class="pos-medal pos-medal-silver">2</span>
+                                        {% elif forloop.counter0 == 2 %}<span class="pos-medal pos-medal-bronze">3</span>
+                                        {% else %}<span class="text-muted small">{{ forloop.counter }}</span>{% endif %}
+                                    </td>
+                                    <td><code class="text-dark">{{ i.barcode }}</code></td>
+                                    <td class="font-weight-bold">{{ i.name }}</td>
+                                    <td class="text-right"><span class="badge badge-success">{{ i.qty }}</span></td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 </div>
+                {% empty %}
+                <div class="pos-empty">
+                    <i class="fas fa-shopping-cart"></i>
+                    <div>No sales recorded yet.</div>
+                    <small>Best-sellers appear here as soon as transactions exist.</small>
+                </div>
+                {% endfor %}
             </div>
         </div>
-</div>
+    </div>
 
+    <div class="col-lg-6 mt-3">
+        <div class="card shadow h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="font-weight-bold text-danger h6 mb-0 text-uppercase" style="letter-spacing:.05em;">
+                    <i class="fas fa-exclamation-triangle mr-1"></i> Low Inventory
+                </div>
+                <span class="badge badge-light border">Top 50</span>
+            </div>
+            <div class="card-body" style="height:490px;overflow-y:auto;">
+                <table class="table table-hover table-sm" width="100%" cellspacing="1">
+                    <thead>
+                        <tr>
+                            <th>Barcode</th>
+                            <th>Name</th>
+                            <th class="text-right">Inv. Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in low_inventory_products %}
+                        <tr>
+                            <td><code class="text-dark">{{ i.barcode }}</code></td>
+                            <td class="font-weight-bold">{{ i.name }}</td>
+                            <td class="text-right">
+                                <span class="badge {% if i.qty <= 0 %}badge-danger{% elif i.qty < 5 %}badge-warning{% else %}badge-light border{% endif %}">
+                                    {{ i.qty }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3">
+                                <div class="pos-empty" style="border:none;padding:1.5rem;">
+                                    <i class="fas fa-check-circle" style="color:var(--pos-success,#059669);"></i>
+                                    <div>All stock levels look healthy.</div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<style>
+    .pos-dept-chip {
+        display: inline-flex; align-items: center; gap: .5rem;
+        background: linear-gradient(135deg, var(--pos-primary, #4f46e5), var(--pos-primary-dark, #4338ca));
+        color: #fff;
+        font-weight: 800; font-size: .8rem; letter-spacing: .05em; text-transform: uppercase;
+        border-radius: 999px;
+        padding: .45rem 1.1rem;
+        box-shadow: 0 4px 12px -4px rgba(79, 70, 229, .5);
+    }
+    .pos-dept-chip i { color: #a5b4fc; }
+    .pos-medal {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 1.7rem; height: 1.7rem;
+        border-radius: 50%;
+        font-weight: 800; font-size: .78rem; color: #fff;
+    }
+    .pos-medal-gold { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 3px 8px -2px rgba(217, 119, 6, .5); }
+    .pos-medal-silver { background: linear-gradient(135deg, #94a3b8, #64748b); }
+    .pos-medal-bronze { background: linear-gradient(135deg, #d97706, #92400e); }
+    .pos-empty {
+        border: 2px dashed var(--pos-border, #e2e8f0);
+        border-radius: 14px;
+        padding: 2rem;
+        text-align: center;
+        color: var(--pos-ink-soft, #64748b);
+        font-weight: 600;
+    }
+    .pos-empty i { font-size: 1.8rem; display: block; margin-bottom: .6rem; color: #cbd5e1; }
+    .pos-empty small { color: #94a3b8; }
+</style>
 {% endblock %}

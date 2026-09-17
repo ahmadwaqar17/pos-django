@@ -5,51 +5,81 @@ Product Information | Online Retail POS
 {% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold  h5 text-gray-500 text-uppercase p-3 "> Product Information </div>
+<div class="mb-0 font-weight-bold h5 text-gray-800 text-uppercase p-3 d-flex align-items-center">
+    <i class="fas fa-search mr-2 text-primary"></i> Price Lookup
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="row" style="width: 100%;padding-right: 0px;">
-        <form class="form" action="{{ request.get_full_path }}" method = "POST" style="width:100%;padding-bottom: 10px;text-align: center;padding:10px;padding-top: 15px;">
-            {% csrf_token %}
-            <div class="row" style="justify-content: center;">
-            {% for field in form %}
-            <ul style="padding-left:0;width:54%"> {{ field }} </ul>
-            {% endfor %}
-            </div>
-            <input class="btn btn-lg btn-primary"  style="width:60%;margin-top: 10px;" id="submit-barcode" type="submit" value="Submit">
-        </form>
-</div>
-<div class="row col-lg-12" style="justify-content: center;">
-    {% if notFound %}
-        <script>
-            window.alert("NO PRODUCT FOUND")
-        </script>
-    {% endif%}
-    {% if obj %}
-    <div class="card shadow" style="width:80%;margin-top:50px">
-        <div class="card-header py-3">
-            <h6 class="m-2 font-weight-bold text-primary h3">Product Information - {{ obj.get_fields.0.1 }}</h6>
-        </div>
-        <div class="card-body " style="width:100%;">
-            <div class="row h1 text-danger  " style="justify-content:end;padding-right: 10%;">
-                Price: {{ obj.get_fields.2.1 }}
-            </div>
-            <div class="table-responsive mt-4" style="width:100%;">
-                <table class="table table-bordered table-hover h5 text-gray-900 " style="width:100%;">
-                    <!-- <table class="table table-hover table-bordered h1 font-weight-bold text-gray-800" style="width:100%;"> -->
-                    <tbody>
-                        {% for name, value in obj.get_fields %}
-                        <tr height="50px" >
-                            <td width="35%">{{ name }}</td>
-                            <td>{{ value }}</td>
-                        </tr>
+<div class="row justify-content-center m-0 p-0">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body py-4">
+                <form class="form" action="{{ request.get_full_path }}" method="POST">
+                    {% csrf_token %}
+                    <div class="row justify-content-center">
+                        {% for field in form %}
+                        <div class="col-lg-8 pb-1">{{ field }}</div>
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </div>
+                    <div class="text-center mt-3">
+                        <button type="submit" class="btn btn-primary btn-lg" style="min-width:220px;">
+                            <i class="fas fa-search mr-1"></i> Look Up Product
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row col-lg-12 justify-content-center m-0 p-0">
+    {% if notFound %}
+    <script>
+        window.alert("NO PRODUCT FOUND")
+    </script>
+    {% endif %}
+
+    {% if obj %}
+    <div class="col-lg-8 mt-4">
+        <div class="card shadow" style="overflow:hidden;">
+            <div class="pos-lookup-banner">
+                <div>
+                    <small class="text-uppercase font-weight-bold" style="opacity:.8;letter-spacing:.08em;">Product Information</small>
+                    <div class="h4 mb-0 font-weight-bold">{{ obj.get_fields.0.1 }}</div>
+                </div>
+                <div class="text-right">
+                    <small class="text-uppercase font-weight-bold" style="opacity:.8;letter-spacing:.08em;">Price</small>
+                    <div class="h3 mb-0 font-weight-bold">PKR {{ obj.get_fields.2.1 }}</div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" style="width:100%;">
+                        <tbody>
+                            {% for name, value in obj.get_fields %}
+                            <tr>
+                                <td width="35%" class="font-weight-bold text-uppercase" style="font-size:.75rem;letter-spacing:.06em;color:#64748b;">{{ name }}</td>
+                                <td>{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block script %}
+<style>
+    .pos-lookup-banner {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 1.2rem 1.5rem;
+        background: linear-gradient(135deg, var(--pos-primary, #4f46e5), var(--pos-primary-dark, #4338ca));
+        color: #fff;
+    }
+</style>
 {% endblock %}
