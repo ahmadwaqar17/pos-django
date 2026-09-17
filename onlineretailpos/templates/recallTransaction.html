@@ -6,33 +6,86 @@ Recall Transaction | Online Retail POS
 {% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold  h5 text-gray-500 text-uppercase p-3 "> Recall Transaction </div>
+<div class="mb-0 font-weight-bold h5 text-gray-800 text-uppercase p-3 d-flex align-items-center">
+    <i class="fas fa-undo mr-2 text-primary"></i> Recall Transaction
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="row col-lg-12">
-    <div class="row col-lg-12" style="justify-content: end;padding-right: 5%;" >
-        &nbsp;&nbsp;&nbsp;&nbsp;*IDs are generated every time when Transactions are Suspended.<br>If you Recall and Suspend a Transaction then it will be on top again.
+<div class="row col-lg-12 m-0 p-0">
+    <div class="col-12 text-right text-muted small mb-2 pr-4">
+        <i class="fas fa-info-circle mr-1"></i>*IDs are generated every time a Transaction is suspended. Recalling and re-suspending moves it to the top.
     </div>
-    <div class="row col-lg-12" style="justify-content: center;padding-right: 5%; margin-top: 20px;" >
-        <a  href="{% url 'register' %}">
-            <button class="btn-lg btn-primary"> Bact to Register</button>
+
+    <div class="col-12 text-center mb-2">
+        <a href="{% url 'register' %}" class="btn btn-primary" data-loading-text="Returning to register…">
+            <i class="fas fa-arrow-left mr-1"></i> Back to Register
         </a>
     </div>
-    <div class="row col-lg-12" style="justify-content: center;">
-        <div  class="row container" style="margin-top:20px">
-        {% for value in obj_rt|sort %}
-            <div class="card shadow card border-left-dark col-lg-5" style="padding:0;text-align:center;margin:3%">
-                <div class="card-header text-primary h5 p-2">
-                    Date and Time : {{ value|transactionID_2_date|date:"D\, M d\, Y \-  h:i A"  }}
-                </div>
-                <div class="card-body text-success">
-                    <a  href="{% url 'recall_transaction_no' recallTransNo=value %}"  class="m-1 font-weight-bold text-success h3">{{ value }}</a>
-                    <!-- Date and Time : {{ value|transactionID_2_date|date:"D d M Y \-  h:i A"  }} -->
+
+    <div class="col-12">
+        <div class="row justify-content-center">
+            {% for value in obj_rt|sort %}
+            <div class="col-lg-5 mb-3 px-2">
+                <a href="{% url 'recall_transaction_no' recallTransNo=value %}" class="pos-recall-card" data-loading-text="Recalling transaction…">
+                    <div class="pos-recall-icon"><i class="fas fa-pause-circle"></i></div>
+                    <div class="flex-grow-1 text-left">
+                        <div class="font-weight-bold text-dark" style="font-size:1.05rem;">Suspended #{{ value }}</div>
+                        <small class="text-muted">{{ value|transactionID_2_date|date:"D\, M d\, Y \-  h:i A" }}</small>
+                    </div>
+                    <i class="fas fa-chevron-right text-muted"></i>
+                </a>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="pos-empty">
+                    <i class="fas fa-inbox"></i>
+                    <div>No suspended transactions.</div>
+                    <small>Use “Suspend Transaction” on the Register to park a sale.</small>
                 </div>
             </div>
-        {% endfor %}
+            {% endfor %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block script %}
+<style>
+    .pos-recall-card {
+        display: flex; align-items: center; gap: 1rem;
+        background: #fff;
+        border: 1px solid var(--pos-border, #e2e8f0);
+        border-radius: 14px;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px -8px rgba(15, 23, 42, .12);
+        text-decoration: none;
+        transition: all .16s ease;
+        height: 100%;
+    }
+    .pos-recall-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, .06), 0 16px 32px -12px rgba(15, 23, 42, .22);
+        text-decoration: none;
+        border-color: var(--pos-primary, #4f46e5);
+    }
+    .pos-recall-icon {
+        width: 46px; height: 46px; flex: none;
+        border-radius: 12px;
+        background: var(--pos-primary-soft, #eef2ff);
+        color: var(--pos-primary, #4f46e5);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem;
+    }
+    .pos-empty {
+        border: 2px dashed var(--pos-border, #e2e8f0);
+        border-radius: 14px;
+        padding: 2.2rem;
+        text-align: center;
+        color: var(--pos-ink-soft, #64748b);
+        font-weight: 600;
+    }
+    .pos-empty i { font-size: 1.8rem; display: block; margin-bottom: .6rem; color: #cbd5e1; }
+    .pos-empty small { color: #94a3b8; }
+</style>
 {% endblock %}

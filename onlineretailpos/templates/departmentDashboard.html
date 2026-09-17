@@ -5,38 +5,46 @@ Department Dashboard | Online Retail POS
 {% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold  h5 text-gray-500 text-uppercase p-3 ">Sales by Department Dashboard</div>
+<div class="mb-0 font-weight-bold h5 text-gray-800 text-uppercase p-3 d-flex align-items-center">
+    <i class="fas fa-chart-bar mr-2 text-primary"></i> Department Dashboard
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="row col-lg-12" style="width:100%;">
-    <div style="text-align:right">*Note: You will need to generate dashboard first in order to create report</div>
-</div>
-<div class="row col-lg-12">
-    <div class="col-lg-10 pr-0 mr-0" style="width:100%;">
-        <form class="row col-lg-12 form mb-1 pr-0" action="{{ request.get_full_path }}" method = "POST" style="width:100%;justify-content:center;text-align:center ;">
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-3">
+        <form class="form row align-items-center m-0" action="{{ request.get_full_path }}" method="POST">
             {% csrf_token %}
             {% for field in form %}
-            <ul class="col-lg-5" style="margin-top:20px;margin-bottom:20px"><strong style="color:black;">{{ field.label }} :</strong> {{ field }}</ul>
+            <div class="col-lg-4 col-md-6 py-1">
+                <label class="text-xs font-weight-bold text-uppercase mb-1" style="color:#64748b;letter-spacing:.06em;">{{ field.label }}</label>
+                {{ field }}
+            </div>
             {% endfor %}
-            <input class="col-lg-2 btn btn-primary" style="width:100%;height:50px;margin-top:10px;padding-left: 0%;padding-right:0%;padding-right:0%"  id="submit-barcode" type="submit" value="Generate Dashboard">
+            <div class="col-lg-4 col-md-6 d-flex py-1 pl-lg-3">
+                <button type="submit" class="btn btn-primary flex-grow-1 mr-2">
+                    <i class="fas fa-sync-alt mr-1"></i> Generate Dashboard
+                </button>
+                <a href="{{ report_link }}" target="_blank" class="flex-grow-1" data-loading-text="Opening report…">
+                    <button type="button" class="btn btn-dark w-100">
+                        <i class="fas fa-print mr-1"></i> View/Print Report
+                    </button>
+                </a>
+            </div>
         </form>
-    </div>
-    <div class="col-lg-2">
-        <a href="{{report_link}}"  target="_blank" >
-        <button class="btn btn-dark" style="width:100%;height:50px;margin-top:10px;padding-left: 0%;padding-right:0%;padding-right:0%">
-            View/Print Report
-        </button>
-        </a>
+        <small class="text-muted d-block mt-2">
+            <i class="fas fa-info-circle mr-1"></i>Tip: generate the dashboard first — the report prints whatever range is shown.
+        </small>
     </div>
 </div>
-<div class="row col-lg-12 mt-4" style="width:100%">
+
+<div class="row col-lg-12 m-0 p-0">
     <div class="col-lg-4">
-        {{ table_fig|safe }}
-        {{ pie_fig|safe }}
+        <div class="card shadow-sm mb-3"><div class="card-body py-3">{{ table_fig|safe }}</div></div>
+        <div class="card shadow-sm"><div class="card-body py-3">{{ pie_fig|safe }}</div></div>
     </div>
     <div class="col-lg-8">
-        {{ bar_fig|safe }}
+        <div class="card shadow-sm h-100"><div class="card-body py-3">{{ bar_fig|safe }}</div></div>
     </div>
 </div>
 {% endblock %}

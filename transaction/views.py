@@ -116,7 +116,9 @@ def recallTransaction(request, recallTransNo = None):
 def endTransactionReceipt(request,transNo):
     try:
         if request.GET["type"]=="cash":
+            # change is what the customer is owed: cash tendered minus the total.
             change = float(request.GET["value"]) - float(request.GET["total"])
+            badge = "badge-success" if change >= 0 else "badge-danger"
             change = f"""<table class="table text-white h3 p-0 m-0"> 
                             <tr> 
                                 <td class="text-left pl-5"> Total : </td> 
@@ -126,9 +128,9 @@ def endTransactionReceipt(request,transNo):
                                 <td class="text-left pl-5"> Cash : </td> 
                                 <td class="text-right pr-5"> PKR {request.GET["value"]}</td> 
                             </tr> 
-                            <tr class="h1 badge-danger" >  
+                            <tr class="h1 {badge}" >  
                                 <td style="padding-top:15px"> Change : </td> 
-                                <td style="padding-top:15px"> PKR {change*(-1):.2f}</td> 
+                                <td style="padding-top:15px"> PKR {change:.2f}</td> 
                             </tr> 
                         </table>"""
         elif request.GET["type"]=="card":

@@ -5,42 +5,72 @@ Transactions | Online Retail POS
 {% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold  h5 text-gray-500 text-uppercase p-3 "> Transactions </div>
+<div class="mb-0 font-weight-bold h5 text-gray-800 text-uppercase p-3 d-flex align-items-center">
+    <i class="fas fa-receipt mr-2 text-primary"></i> Transactions
+</div>
 {% endblock %}
 
 {% block content %}
 <div style="padding-right:3%">
-    <!-- DataTales Example -->
     <div class="card shadow mb-4">
-        <div class="card-header border-secondary">
-            <form class="form mb-1 row " action="{{ request.get_full_path }}" method = "POST" style="padding-left:3%;width:100%;justify-content:center;text-align:center">
+        <div class="card-header">
+            <form class="form row align-items-center m-0" action="{{ request.get_full_path }}" method="POST">
                 {% csrf_token %}
                 {% for field in form %}
-                <ul class="col-lg-4" style="margin-top:20px"><strong style="color:black;padding-right: 15px;padding-left: 10px;">{{ field.label }} :</strong> {{ field }}</ul>
+                <div class="col-lg-4 col-md-6 py-1">
+                    <label class="text-xs font-weight-bold text-uppercase mb-1" style="color:#64748b;letter-spacing:.06em;">{{ field.label }}</label>
+                    {{ field }}
+                </div>
                 {% endfor %}
-                <input class="col-lg-4 btn btn-primary" style="width:100%;height:50px;margin-top:10px;"  id="submit-barcode" type="submit" value="Submit">
+                <div class="col-lg-4 col-md-6 py-1 pl-lg-3">
+                    <button type="submit" class="btn btn-primary" style="height:46px;min-width:160px;">
+                        <i class="fas fa-filter mr-1"></i> Apply Filters
+                    </button>
+                </div>
             </form>
         </div>
-        <div class="card-body ">
+        <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped table-bordered" width="100%" cellspacing="0" >
-                    <thead class="table-dark">
-                        <tr >
+                <table class="table table-striped table-hover" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
                             <th>Transaction ID</th>
-                            <th>Total Sale</th>
+                            <th class="text-right">Total Sale</th>
                             <th>Payment Type</th>
-                            <th>Date & Time</th>
-                            <th>Receipt</th>
+                            <th>Date &amp; Time</th>
+                            <th class="text-center">Receipt</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for i in transactions %}
                         <tr>
-                            <td>{{ i.transaction_id }}</td>
-                            <td>{{ i.total_sale }}</td>
-                            <td>{{ i.payment_type }}</td>
-                            <td>{{ i.transaction_dt|date:"D\, M d, Y h:i A" }}</td>
-                            <td><a href="{% url 'transactionReceipt' transNo=i.transaction_id %}" target="_self" >View Receipt</a></td>
+                            <td><code class="text-dark">{{ i.transaction_id }}</code></td>
+                            <td class="text-right font-weight-bold">PKR {{ i.total_sale|floatformat:2 }}</td>
+                            <td>
+                                {% if 'CASH' in i.payment_type %}
+                                <span class="badge badge-success">{{ i.payment_type }}</span>
+                                {% elif 'EBT' in i.payment_type %}
+                                <span class="badge badge-info">{{ i.payment_type }}</span>
+                                {% else %}
+                                <span class="badge badge-primary">{{ i.payment_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted">{{ i.transaction_dt|date:"D\, M d, Y h:i A" }}</td>
+                            <td class="text-center">
+                                <a class="btn btn-sm btn-light border" href="{% url 'transactionReceipt' transNo=i.transaction_id %}" data-loading-text="Opening receipt…">
+                                    <i class="fas fa-receipt mr-1"></i> View Receipt
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5">
+                                <div class="pos-empty">
+                                    <i class="fas fa-receipt"></i>
+                                    <div>No transactions found in the selected period.</div>
+                                    <small>Adjust the filters above or complete a sale on the Register.</small>
+                                </div>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -49,4 +79,19 @@ Transactions | Online Retail POS
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block script %}
+<style>
+    .pos-empty {
+        border: 2px dashed var(--pos-border, #e2e8f0);
+        border-radius: 14px;
+        padding: 2.2rem;
+        text-align: center;
+        color: var(--pos-ink-soft, #64748b);
+        font-weight: 600;
+    }
+    .pos-empty i { font-size: 1.8rem; display: block; margin-bottom: .6rem; color: #cbd5e1; }
+    .pos-empty small { color: #94a3b8; }
+</style>
 {% endblock %}

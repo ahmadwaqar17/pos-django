@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-click-sound-src="{% static 'sounds/click.wav' %}">
 
 <head>
     <meta charset="utf-8">
@@ -17,6 +17,7 @@
 
     <!-- Custom styles for this template-->
     <link href="{% static 'css/sb-admin-2.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/theme.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/datatables/dataTables.bootstrap4.min.css' %}" rel="stylesheet">
     
     <link href="//code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css" rel="stylesheet">
@@ -85,7 +86,13 @@
 
 </head>
 
-<body id="page-top">
+<body id="page-top" class="pos-theme">
+
+    <!-- Global loading overlay (spinner) -->
+    <div id="pos-loading-overlay" role="status" aria-live="polite">
+        <div class="pos-spinner"></div>
+        <div class="pos-overlay-text">Loading…</div>
+    </div>
 
     <audio id="notification-audio" preload="auto" autoplay>
         <source src="{% static 'note.mp3' %}" type="audio/mpeg">
@@ -198,19 +205,25 @@
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <span class="mr-2 d-none d-lg-inline text-gray-800 md-primary">Hello, {{ user.first_name }} {{ user.last_name }}</span>
-                                <i class="fas fa-user-alt" style="color:rgb(92, 92, 244);padding-left:5px"></i>
+                                <span class="pos-avatar">{{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}</span>
                             </a>
                             <!-- Dropdown - User Information -->
                             <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in p-1"
-                                aria-labelledby="userDropdown" style="background:#e0e0e0">
+                                aria-labelledby="userDropdown">
+                                <div class="pos-user-card">
+                                    <div class="pos-avatar pos-avatar-lg">{{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}</div>
+                                    <div>
+                                        <div class="font-weight-bold text-dark">{{ user.first_name }} {{ user.last_name }}</div>
+                                        <small class="text-muted">{% if user.is_superuser %}Administrator{% elif user.is_staff %}Staff{% else %}Cashier{% endif %}</small>
+                                    </div>
+                                </div>
                                 <hr class="m-1">
-                                <a class="h6 dropdown-item p-3 text-dark m-0" href="{% url 'change_password' %}" style="min-width:200px">
+                                <a class="dropdown-item p-3 text-dark m-0" href="{% url 'change_password' %}" style="min-width:200px">
                                     <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
                                     Change Password
                                 </a>
-                                <hr class="m-2">
-                                <a class="h6 dropdown-item p-3 text-danger m-0" href="{% url 'user_logout' %}" style="min-width:200px">
-                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2  text-danger" style="color:rgb(255, 0, 0)"></i>
+                                <a class="dropdown-item p-3 text-danger m-0" href="{% url 'user_logout' %}" data-loading-text="Logging out…" style="min-width:200px">
+                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2"></i>
                                     Logout
                                 </a>
                                 <hr class="m-1">
@@ -239,6 +252,8 @@
     <script src="{% static 'vendor/jquery-easing/jquery.easing.min.js' %}"></script>
     <!-- Custom scripts for all pages-->
     <script src="{% static 'js/sb-admin-2.min.js' %}"></script>
+    <!-- Modern theme scripts (spinner overlay, page transitions) -->
+    <script src="{% static 'js/theme.js' %}"></script>
     <!-- Data Table  plugins -->
     <script src="{% static 'vendor/datatables/jquery.dataTables.min.js' %}"></script>
     <script src="{% static 'vendor/datatables/dataTables.bootstrap4.min.js' %}"></script>

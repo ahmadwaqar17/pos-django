@@ -6,50 +6,54 @@ Register | Online Retail POS
 {% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3 d-flex align-items-center justify-content-between">
-    <span>Register</span>
+<div class="mb-0 font-weight-bold h5 text-gray-800 text-uppercase p-3 d-flex align-items-center justify-content-between">
+    <span><i class="fas fa-cash-register mr-2 text-primary"></i>Register</span>
     <button type="button" class="btn btn-primary btn-sm shadow-sm" data-toggle="modal" data-target="#productListModal">
-        <i class="fas fa-boxes mr-1"></i> 📋 Browse Product Catalog
+        <i class="fas fa-boxes mr-1"></i><span class="d-none d-md-inline">Browse Product Catalog</span><span class="d-md-none">Catalog</span>
     </button>
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="row" style="width: 100%;padding-right: 0px;">
+<div class="row pos-register m-0" style="width: 100%;padding-right: 0px;">
+    <!-- ================= LEFT: scan + cart ================= -->
     <div class="col-lg-6">
-        <div class="row mb-0" style="padding-bottom:5px;">
-            <form class="form col-lg-6" action="{{ request.get_full_path }}" method="POST" id="barcode-form" style="width:100%;padding-bottom: 10px;padding:10px;padding-top: 10px;">
+        <div class="row mb-0">
+            <form class="form col-lg-6" action="{{ request.get_full_path }}" method="POST" id="barcode-form" style="width:100%;padding:10px;">
                 {% csrf_token %}
                 <div class="row" style="width:100%;justify-content: center; position: relative;">
                     <div class="w-100 mb-2">
-                        <label class="font-weight-bold text-dark mb-1 d-flex justify-content-between align-items-center" style="width:100%;">
-                            <span>Barcode / Product SKU / Name:</span>
+                        <label class="font-weight-bold text-dark mb-1 d-flex justify-content-between align-items-center" style="width:100%;font-size:.85rem;">
+                            <span>BARCODE / SKU / NAME</span>
                             <small class="text-primary font-weight-normal" style="cursor:pointer;" data-toggle="modal" data-target="#productListModal">
-                                <i class="fas fa-search"></i> Product Catalog
+                                <i class="fas fa-search"></i> Catalog
                             </small>
                         </label>
                         <div style="position: relative;">
-                            <input type="text" name="barcode" id="id_barcode" class="form-control" placeholder="Scan or type barcode / name..." autofocus autocomplete="off" style="width:100%;">
+                            <input type="text" name="barcode" id="id_barcode" class="form-control" placeholder="Scan or type barcode / name…" autofocus autocomplete="off" style="width:100%;">
                             <div id="barcode_autocomplete_dropdown" class="shadow rounded bg-white border" style="display:none; position:absolute; top: 100%; left: 0; right: 0; z-index: 1050; max-height: 250px; overflow-y: auto;"></div>
                         </div>
                     </div>
                     <div class="w-100 mb-2">
-                        <label class="font-weight-bold text-dark mb-1">Quantity:</label>
+                        <label class="font-weight-bold text-dark mb-1" style="font-size:.85rem;">QUANTITY</label>
                         <input type="number" name="qty" id="id_qty" class="form-control" value="1" min="1" style="width:100%;">
                     </div>
                 </div>
                 <div class="d-flex" style="gap: 5px; margin-top: 5px;">
-                    <input class="btn btn-primary flex-grow-1" id="submit-barcode" type="submit" value="Submit">
+                    <button type="submit" class="btn btn-primary flex-grow-1" id="submit-barcode">
+                        <i class="fas fa-plus mr-1"></i> Add to Cart
+                    </button>
                     <button type="button" class="btn btn-info" data-toggle="modal" data-target="#productListModal" title="Open Product List">
                         <i class="fas fa-list"></i> Products
                     </button>
                 </div>
             </form>
+
             <div class="col-lg-6 card border-left-success shadow-sm h-100 py-2" style="width:100%;margin-top:10px;margin-bottom: 10px;">
                 <div class="card-header py-2">
-                    <h6 class="mb-0 font-weight-bold text-uppercase text-success ">Transaction Info</h6>
+                    <h6 class="mb-0 font-weight-bold text-uppercase text-success" style="font-size:.8rem;letter-spacing:.06em;">Transaction Info</h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body py-2">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">
@@ -59,7 +63,7 @@ Register | Online Retail POS
                                 <strong>Tax Total : </strong>{{ tax_total|floatformat:2 }}</div>
                             <div class="text-xl font-weight-bold text-success text-uppercase mb-1">
                                 <strong>Total : </strong></div>
-                            <div class="h3 mb-0 font-weight-bold text-gray-800" style="text-align:right;" >{{ total|floatformat:2 }}</div>
+                            <div class="h3 mb-0 font-weight-bold text-gray-800" style="text-align:right;">{{ total|floatformat:2 }}</div>
                         </div>
                         <div class="col-auto">
                             <span class="text-gray-300" style="font-size:3rem;font-weight:700">₨</span>
@@ -68,66 +72,87 @@ Register | Online Retail POS
                 </div>
             </div>
         </div>
+
         <div class="row mb-2" id="cart_display" style="padding-top: 10px; padding-bottom: 0px;">
             {% if no_product %}
             <div class="loginPopup" id='popup'>
                 <div class="formPopup" id="popupForm" style="display:block">
-                    <div class="formContainer">
-                        <div class="h3 mb-5 text-gray-800"> Product Not Found, Please add Product in Inventory </div>
+                    <div class="formContainer pos-popup-card">
+                        <div class="h5 mb-4 text-gray-800"><i class="fas fa-exclamation-circle text-danger mr-2"></i>Product Not Found</div>
+                        <p class="text-muted small">Please add this product to inventory first.</p>
                         <button type="button" class="btn btn-danger btn-lg btn-block" onclick="closeForm()">Close</button>
                     </div>
                 </div>
             </div>
             {% endif %}
+
             <div class="card shadow-sm" style="width:100%;height:465px;">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 font-weight-bold text-primary">Transaction Details</h6>
+                    <h6 class="m-0 font-weight-bold text-primary text-uppercase" style="font-size:.8rem;letter-spacing:.06em;">Transaction Details</h6>
                     <span class="badge badge-primary">{{ cart|length }} Item(s)</span>
                 </div>
                 <div class="card-body" style="overflow: auto ;padding:0">
                     <table class="table" style="text-align:right;">
-                        <tr>
-                            <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)" >Barcode/Name</th>
-                            <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Qty</th>
-                            <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Price</th>
-                            <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">L-Total<br>Tax</th>
-                            <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">L-Total<br>Deposit</th>
-                            <th style="font-family: bold;color:rgba(0, 0, 0, 0.623)">Line<br>Total</th>
-                        </tr>
-                        {% for key, value in cart.items %}
-                        <tr>
-                            <th style="text-align:left">{{key}} <br> {{value.name}}</th>
-                            <td>{{value.quantity}}</td>
-                            <td>{{value.price}}</td>
-                            <td>{{value.tax_value}}</td>
-                            <td>{{value.deposit_value}}</td>
-                            <td>{{value.line_total}}</td>
-                        </tr>
-                        {% endfor %}
-                    </table> 
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;">Barcode / Name</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>L-Total<br>Tax</th>
+                                <th>L-Total<br>Deposit</th>
+                                <th>Line<br>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key, value in cart.items %}
+                            <tr>
+                                <th style="text-align:left" class="font-weight-bold">{{key}} <br> <span class="text-muted font-weight-normal">{{value.name}}</span></th>
+                                <td>{{value.quantity}}</td>
+                                <td>{{value.price}}</td>
+                                <td>{{value.tax_value}}</td>
+                                <td>{{value.deposit_value}}</td>
+                                <td class="font-weight-bold">{{value.line_total}}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6">
+                                    <div class="pos-empty" style="border:none;">
+                                        <i class="fas fa-shopping-cart"></i>
+                                        <div>Cart is empty</div>
+                                        <small>Scan a barcode, search by name, or pick from the catalog.</small>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- ================= RIGHT: actions + payment + quick products ================= -->
     <div class="col-lg-6">
         <hr>
-        <div class="btn-block" style="padding-top: 10px;text-align:center">
-            <button id="disable_1" onclick="return window.open('/register/returns_transaction/',target='_self')" class="btn btn-warning" style="width:23%;margin:2px;height:60px;margin-bottom:5px" > (-)<br>Returns </button>
-            <button id="disable_2" onclick="return window.open('/register/suspend_transaction/',target='_self')" class="btn btn-info" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Suspend<br>Transaction </button>
-            <button onclick="return window.open('/register/recall_transaction/',target='_self')" class="btn btn-info" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Recall<br>Transaction </button>
-            <button id="disable_4" onclick="return window.open('/register/cart_clear/',target='_self')" class="btn btn-danger" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Clear<br>Transaction </button>
+        <!-- Cart actions -->
+        <div class="btn-block d-flex flex-wrap" style="padding-top: 10px;text-align:center">
+            <button id="disable_1" onclick="posGo('/register/returns_transaction/','Opening returns…')" class="btn btn-warning pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> (-)<br>Returns </button>
+            <button id="disable_2" onclick="posGo('/register/suspend_transaction/','Suspending transaction…')" class="btn btn-info pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Suspend<br>Transaction </button>
+            <button id="disable_3" onclick="posGo('/register/recall_transaction/','Opening recalls…')" class="btn btn-info pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Recall<br>Transaction </button>
+            <button id="disable_4" onclick="posGo('/register/cart_clear/','Clearing cart…')" class="btn btn-danger pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Clear<br>Transaction </button>
         </div>
         <hr>
-        <div class="btn-block" style="padding-top: 10px;text-align:center" >
-            <button id="disable_P_1" onclick="return window.open('/endTransaction/card/DEBIT_CREDIT/',target='_self')" class="btn btn-success" style="width:23%;height:60px; margin:2px;margin-bottom:5px;background-color:darkgreen" > Debit/<br>Credit </button>
-            <button id="disable_P_2" onclick="endTransactionCash(100,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 100 </button>
-            <button id="disable_P_3" onclick="endTransactionCash(500,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 500 </button>
-            <button id="disable_P_4" onclick="endTransactionCash('Next','{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:rgb(27, 66, 27)"> Next<br>Amount </button>
-            <button id="disable_P_5" onclick="return window.open('/endTransaction/card/EBT/',target='_self')" class="btn btn-success" style="width:23%;margin: 2px;height:60px;margin-bottom:5px;background-color:darkgreen"> EBT </button>
-            <button id="disable_P_6" onclick="endTransactionCash(1000,'{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px" > 1000 </button>
-            <button id="disable_P_7" onclick="endTransactionCash(5000,'{{ total }}')" class="btn btn-success" style="width:23%;margin: 2px;height:60px;margin-bottom:5px"> 5000 </button>
-            <button id="disable_P_8" onclick="endTransactionCash('CASH','{{ total }}')" class="btn btn-success" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:rgb(27, 66, 27)"> CASH </button>
+
+        <!-- Payment keys -->
+        <div class="btn-block d-flex flex-wrap" style="padding-top: 10px;text-align:center">
+            <button id="disable_P_1" onclick="posGo('/endTransaction/card/DEBIT_CREDIT/','Processing card payment…')" class="btn btn-success pos-key pos-key-pay" style="width:23%;height:60px; margin:2px;margin-bottom:5px;"> Debit/<br>Credit </button>
+            <button id="disable_P_2" onclick="endTransactionCash(100,'{{ total }}')" class="btn btn-success pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 100 </button>
+            <button id="disable_P_3" onclick="endTransactionCash(500,'{{ total }}')" class="btn btn-success pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 500 </button>
+            <button id="disable_P_4" onclick="endTransactionCash('Next','{{ total }}')" class="btn btn-success pos-key pos-key-pay" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Next<br>Amount </button>
+            <button id="disable_P_5" onclick="posGo('/endTransaction/card/EBT/','Processing EBT payment…')" class="btn btn-success pos-key pos-key-pay" style="width:23%;margin: 2px;height:60px;margin-bottom:5px"> EBT </button>
+            <button id="disable_P_6" onclick="endTransactionCash(1000,'{{ total }}')" class="btn btn-success pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 1000 </button>
+            <button id="disable_P_7" onclick="endTransactionCash(5000,'{{ total }}')" class="btn btn-success pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> 5000 </button>
+            <button id="disable_P_8" onclick="endTransactionCash('CASH','{{ total }}')" class="btn btn-success pos-key pos-key-pay" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> CASH </button>
         </div>
         <div class="loginPopup" id='cash_popup'> </div>
         <hr>
@@ -148,15 +173,16 @@ Register | Online Retail POS
                     </li>
                 </ul>
             </div>
+
             <div class="card-body p-2 tab-content" style="height: 300px; overflow-y: auto;">
                 <!-- Tab 1: Quick Buttons -->
                 <div class="tab-pane fade show active" id="quick-buttons-pane" role="tabpanel" aria-labelledby="quick-buttons-tab">
                     <div class="btn-block text-center pt-2">
                         {% for i in displayed_items %}
                         {% if i.variable_price %}
-                        <button onclick="variableAmount('{{i.barcode}}','{{ i.display_name }}','{{ i.display_info }}')" class="btn btn-primary" style="width:23%;margin:2px;height:60px;margin-bottom:5px;margin-top:5px;background-color:'{{ i.display_color }}'"> {{ i.display_name }} </button>
+                        <button onclick="variableAmount('{{i.barcode}}','{{ i.display_name }}','{{ i.display_info }}')" class="btn btn-primary pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px;margin-top:5px;background-color:{{ i.display_color }}"> {{ i.display_name }} </button>
                         {% else %}
-                        <button onclick="return window.open('/cart/add/{{i.barcode}}/1/',target='_self')" class="btn btn-dark" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:'{{ i.display_color }}'" > {{ i.display_name }} </button>
+                        <button onclick="posGo('/cart/add/{{i.barcode}}/1/','Adding to cart…')" class="btn btn-dark pos-key" style="width:23%;margin:2px;height:60px;margin-bottom:5px;background-color:{{ i.display_color }}" > {{ i.display_name }} </button>
                         {% endif %}
                         {% empty %}
                         <div class="text-muted p-4">No quick buttons assigned. Click the <strong>All Products Grid</strong> tab above or <strong>Browse Product Catalog</strong> to select products.</div>
@@ -172,7 +198,7 @@ Register | Online Retail POS
                     <div class="row no-gutters" id="product_grid_container">
                         {% for p in all_products %}
                         <div class="col-6 col-md-4 p-1 grid-product-card" data-search="{{ p.name|lower }} {{ p.barcode }}">
-                            <div class="card h-100 shadow-sm border-left-info" style="cursor: pointer; transition: transform 0.1s;" onclick="window.open('/cart/add/{{ p.barcode }}/1/', target='_self')">
+                            <div class="card h-100 shadow-sm border-left-info pos-grid-card" onclick="posGo('/cart/add/{{ p.barcode }}/1/','Adding to cart…')">
                                 <div class="card-body p-2 text-center">
                                     <div class="font-weight-bold text-dark text-truncate mb-1" style="font-size: 0.85rem;" title="{{ p.name }}">{{ p.name }}</div>
                                     <small class="text-muted d-block" style="font-size: 0.75rem;">SKU: {{ p.barcode }}</small>
@@ -396,7 +422,7 @@ Register | Online Retail POS
             e.preventDefault();
             var barcode = $(this).data('barcode');
             var qty = $('#id_qty').val() || 1;
-            window.open('/cart/add/' + encodeURIComponent(barcode) + '/' + qty + '/', '_self');
+            posGo('/cart/add/' + encodeURIComponent(barcode) + '/' + qty + '/', 'Adding to cart…');
         });
 
         // Keyboard navigation (Arrow Up/Down, Enter)
@@ -485,7 +511,7 @@ Register | Online Retail POS
     function addToCartFromModal(barcode, btnElement) {
         var $container = $(btnElement).closest('tr, .product-mobile-card');
         var qty = $container.find('.item-qty-input').val() || 1;
-        window.open('/cart/add/' + encodeURIComponent(barcode) + '/' + qty + '/', '_self');
+        posGo('/cart/add/' + encodeURIComponent(barcode) + '/' + qty + '/', 'Adding to cart…');
     }
 
 
@@ -500,9 +526,9 @@ Register | Online Retail POS
         }
         var value = Number(value);
         if (total <= value){
-            window.open("/endTransaction/cash/"+value+"/", target="_self");
+            posGo("/endTransaction/cash/"+value+"/", "Recording sale…");
         } else {
-            document.getElementById("cash_popup").innerHTML = '<div class="formPopup" id="popupForm" style="display:block"><form action="#" onsubmit="return endForm(this,'+total+')" class="formContainer"> <div class="h3 mb-4 text-gray-800">Please Enter <br>Cash Amount....</div><input class="mb-3" type="text" id="cashAmount" placeholder="Cash Amount..." autocomplete="off" required /><button type="submit" class="btn btn-success btn-lg btn-block">Enter</button><button type="button" class="btn btn-danger btn-lg btn-block" onclick="closeForm()">Close</button></form></div>';
+            document.getElementById("cash_popup").innerHTML = '<div class="formPopup" id="popupForm" style="display:block"><form action="#" onsubmit="return endForm(this,'+total+')" class="formContainer pos-popup-card"> <div class="h5 mb-4 text-gray-800 font-weight-bold">Please Enter <br>Cash Amount…</div><input class="mb-3 form-control" type="text" id="cashAmount" placeholder="Cash Amount..." autocomplete="off" required /><button type="submit" class="btn btn-success btn-lg btn-block">Enter</button><button type="button" class="btn btn-danger btn-lg btn-block mt-1" onclick="closeForm()">Close</button></form></div>';
             $( "#cashAmount" ).focus();
         }
     }
@@ -518,7 +544,7 @@ Register | Online Retail POS
     }
 
     function variableAmount(barcode,name,info){
-        document.getElementById("cash_popup").innerHTML = '<div class="formPopup" id="popupForm" style="display:block"><form action="#" onsubmit="return amountProductFunc(this);" class="formContainer"><label id="department_value" class="h5 text-primary">'+barcode+'</label><hr><div class="h5 text-success mb-3">'+name+'</div><div class="h6 mb-1 text-gray-800" style="text-align:left">Please Enter Amount...</div><input class="mb-3" type="text" id="cashAmount" placeholder="Variable Amount..." autocomplete="off" required /><button type="submit" class="btn btn-success btn-lg btn-block">Enter</button><button type="button" class="btn btn-danger btn-lg btn-block" onclick="closeForm()">Close</button><div style="text-align:left"><br>'+info+'</div></form></div>';
+        document.getElementById("cash_popup").innerHTML = '<div class="formPopup" id="popupForm" style="display:block"><form action="#" onsubmit="return amountProductFunc(this);" class="formContainer pos-popup-card"><label id="department_value" class="h6 text-primary font-weight-bold">'+barcode+'</label><hr><div class="h5 text-success mb-3 font-weight-bold">'+name+'</div><div class="h6 mb-1 text-gray-800" style="text-align:left">Please Enter Amount...</div><input class="mb-3 form-control" type="text" id="cashAmount" placeholder="Variable Amount..." autocomplete="off" required /><button type="submit" class="btn btn-success btn-lg btn-block">Enter</button><button type="button" class="btn btn-danger btn-lg btn-block mt-1" onclick="closeForm()">Close</button><div style="text-align:left"><br>'+info+'</div></form></div>';
         $( "#cashAmount" ).focus();
     }
 
@@ -527,10 +553,36 @@ Register | Online Retail POS
         department = form.firstElementChild.innerHTML;
         amount = Number(form.cashAmount.value);
         if (amount){
-            window.open("/register/"+department+"/"+amount+"/",target="_self");
+            posGo("/register/"+department+"/"+amount+"/", "Adding to cart…");
         }
         return false;
     }
 </script>
 {% endblock %}
 
+{% block script %}
+<style>
+    .pos-key { font-size: .82rem; font-weight: 800; line-height: 1.25; border-radius: 12px; }
+    .pos-key-pay { background: linear-gradient(135deg, #065f46, #064e3b) !important; }
+    .pos-grid-card { cursor: pointer; }
+    .pos-grid-card:hover { transform: translateY(-2px); border-left-color: var(--pos-primary) !important; }
+    .pos-popup-card {
+        max-width: 380px;
+        width: 100%;
+        padding: 1.5rem;
+        background: #fff;
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 24px 64px -12px rgba(15, 23, 42, .35);
+    }
+    .formPopup { border: none; }
+    .pos-empty {
+        padding: 2rem 1rem;
+        text-align: center;
+        color: var(--pos-ink-soft, #64748b);
+        font-weight: 600;
+    }
+    .pos-empty i { font-size: 1.6rem; display: block; margin-bottom: .5rem; color: #cbd5e1; }
+    .pos-empty small { color: #94a3b8; font-weight: 500; }
+</style>
+{% endblock %}
