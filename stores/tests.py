@@ -175,3 +175,114 @@ class SignupTests(TestCase):
         self.assertFalse(Store.objects.filter(name="X").exists())
         self.assertFalse(get_user_model().objects.filter(username="x").exists())
         self.assertFalse(StoreMembership.objects.exists())
+
+
+class PlatformSuperAdminTests(TestCase):
+    """The platform area: super admins manage stores and assign users."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.super_admin = get_user_model().objects.create_user(username="boss", password="pw")
+        StoreMembership.objects.create(user=cls.super_admin, role=StoreMembership.ROLE_SUPER_ADMIN)
+        cls.owner = get_user_model().objects.create_user(username="tenant", password="pw")
+        cls.store = Store.objects.create(name="Tenant Store", slug="tenant", store_name="Tenant Store")
+        StoreMembership.objects.create(store=cls.store, user=cls.owner, role=StoreMembership.ROLE_OWNER)
+
+    def login_as(self, user):
+        self.client.force_login(user)
+
+    def test_super_admin_login_lands_on_platform_dashboard(self):
+        self.client.force_login(self.super_admin)
+        resp = self.client.get("/user/login/", follow=False)  # logged in: public path is fine
+        dashboard = self.client.get(reverse("platform_dashboard"))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertContains(dashboard, "Tenant Store")
+
+    def test_tenant_user_cannot_open_platform(self):
+        self.login_as(self.owner)
+        resp = self.client.get(reverse("platform_dashboard"))
+        # Middleware bounces tenants to the home redirect ('/'), which itself
+        # resolves to the sales dashboard; either way, no platform content.
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotIn("/platform", resp.url)
+
+    def test_anonymous_cannot_open_platform(self):
+        resp = self.client.get(reverse("platform_dashboard"))
+        # login_required by the view: redirected to login, or rejected by the
+        # permission decorator (403) — both keep the anonymous user out.
+        self.assertIn(resp.status_code, (302, 403))
+        if resp.status_code == 302:
+            self.assertIn("/user/login/", resp.url)
+
+    def test_add_store_creates_store_and_seeds_defaults(self):
+        self.login_as(self.super_admin)
+        resp = self.client.post(reverse("platform_add_store"), {
+            "store_name": "New Corner Shop",
+            "store_address": "Main St 1",
+            "store_phone": "0300-1234567",
+            "currency": "PKR",
+            "timezone": "US/Eastern",
+            "plan": "trial",
+        })
+        store = Store.objects.get(slug="new-corner-shop")
+        self.assertRedirects(resp, reverse("platform_store_users", args=[store.id]), fetch_redirect_response=False)
+        self.assertTrue(tax.all_objects.filter(store=store, tax_category="Zero Tax").exists())
+        self.assertTrue(deposit.all_objects.filter(store=store, deposit_category="No Deposit").exists())
+        self.assertTrue(department.all_objects.filter(store=store, department_name="General").exists())
+
+    def test_assign_new_user_to_store_with_email_and_password(self):
+        self.login_as(self.super_admin)
+        resp = self.client.post(reverse("platform_store_users", args=[self.store.id]), {
+            "username": "cashier1",
+            "email": "cashier1@example.com",
+            "password": "s3cure-Passw0rd!",
+            "role": "cashier",
+        })
+        self.assertRedirects(resp, reverse("platform_store_users", args=[self.store.id]), fetch_redirect_response=False)
+        user = get_user_model().objects.get(username="cashier1")
+        self.assertEqual(user.email, "cashier1@example.com")
+        self.assertTrue(user.check_password("s3cure-Passw0rd!"))
+        self.assertEqual(user.store_membership.store, self.store)
+        self.assertEqual(user.store_membership.role, "cashier")
+
+    def test_assign_existing_user_moves_them_to_this_store(self):
+        self.login_as(self.super_admin)
+        resp = self.client.post(reverse("platform_store_users", args=[self.store.id]), {
+            "username": "tenant",
+            "email": "t@example.com",
+            "password": "fresh-Passw0rd!",
+            "role": "owner",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.store_membership.store, self.store)
+        self.assertTrue(self.owner.check_password("fresh-Passw0rd!"))
+
+    def test_user_in_another_store_is_rejected_not_stolen(self):
+        other = Store.objects.create(name="Other", slug="other", store_name="Other")
+        other_owner = get_user_model().objects.create_user(username="otherowner", password="pw")
+        StoreMembership.objects.create(store=other, user=other_owner, role=StoreMembership.ROLE_OWNER)
+        self.login_as(self.super_admin)
+        resp = self.client.post(reverse("platform_store_users", args=[self.store.id]), {
+            "username": "otherowner",
+            "email": "o@example.com",
+            "password": "whatever-Passw0rd!",
+            "role": "cashier",
+        })
+        self.assertEqual(resp.status_code, 200)          # form re-rendered with error
+        other_owner.refresh_from_db()
+        self.assertEqual(other_owner.store_membership.store, other)   # untouched
+
+    def test_suspended_store_kicks_tenant_but_not_super_admin(self):
+        self.store.is_active = False
+        self.store.save()
+        self.login_as(self.owner)
+        self.assertEqual(self.client.get(reverse("register")).status_code, 302)
+        self.login_as(self.super_admin)
+        self.assertEqual(self.client.get(reverse("platform_dashboard")).status_code, 200)
+
+    def test_super_admin_membership_cannot_belong_to_a_store(self):
+        from django.core.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError):
+            StoreMembership(store=self.store, user=None, role=StoreMembership.ROLE_SUPER_ADMIN).clean()

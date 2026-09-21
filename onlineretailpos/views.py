@@ -305,6 +305,10 @@ def user_login(request):
             login(request, user)
             request.session["Total"] = 0.00
             request.session["Tax_Total"] = 0.00
+            # Super admins land on the platform dashboard, tenants on the register.
+            from stores.middleware import is_super_admin
+            if is_super_admin(user):
+                return redirect('platform_dashboard')
             return redirect('home')
         else:
             return render(request, 'registration/login.html',context={'error':True,"store_name":"Online Retail POS"})

@@ -27,18 +27,39 @@ class Store(models.Model):
 
 
 class StoreMembership(models.Model):
-    """Links a user to their store. v1: one membership per user."""
+    """Links a user to their store. v1: one membership per user.
+
+    ``super_admin`` is the platform operator role: their membership has no
+    store — they manage every store from /platform/ instead of selling.
+    """
 
     ROLE_OWNER = "owner"
     ROLE_CASHIER = "cashier"
-    ROLES = [(ROLE_OWNER, "Owner"), (ROLE_CASHIER, "Cashier")]
+    ROLE_SUPER_ADMIN = "super_admin"
+    ROLES = [
+        (ROLE_OWNER, "Owner"),
+        (ROLE_CASHIER, "Cashier"),
+        (ROLE_SUPER_ADMIN, "Super Admin"),
+    ]
 
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="memberships")
+    store = models.ForeignKey(
+        Store, on_delete=models.CASCADE, related_name="memberships",
+        null=True, blank=True,  # null only for platform super admins
+    )
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="store_membership"
     )
     role = models.CharField(max_length=16, choices=ROLES, default=ROLE_OWNER)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.role == self.ROLE_SUPER_ADMIN and self.store_id:
+            raise ValidationError("Super admins are platform-level and cannot belong to a store.")
+        if self.role != self.ROLE_SUPER_ADMIN and not self.store_id:
+            raise ValidationError("Store roles (owner/cashier) require a store.")
+
     def __str__(self) -> str:
-        return f"{self.user} @ {self.store} ({self.role})"
+        target = self.store if self.store_id else "platform"
+        return f"{self.user} @ {target} ({self.role})"
