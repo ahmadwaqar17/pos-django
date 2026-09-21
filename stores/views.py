@@ -170,6 +170,56 @@ def platform_add_store(request):
 
 
 @super_admin_required
+def platform_store_detail(request, store_id):
+    """Full detail page for one store: profile, stats, users, recent sales."""
+    from inventory.models import product
+    from transaction.models import productTransaction
+
+    store = Store.objects.get(pk=store_id)
+
+    txn_qs = transaction.all_objects.filter(store=store)
+    recent_txns = txn_qs.order_by("-transaction_dt").values(
+        "transaction_id", "transaction_dt", "total_sale", "payment_type", "user__username"
+    )[:15]
+
+    from django.db.models import Sum
+
+    totals = txn_qs.aggregate(
+        txn_count=Count("id"),
+        revenue=Sum("total_sale"),
+        tax_total=Sum("tax_total"),
+    )
+
+    by_payment = (
+        productTransaction.all_objects.filter(store=store)
+        .values("payment_type")
+        .annotate(line_count=Count("id"))
+        .order_by("payment_type")
+    )
+
+    top_products = (
+        productTransaction.all_objects.filter(store=store)
+        .values("barcode", "name")
+        .annotate(qty_sold=Sum("qty"))
+        .order_by("-qty_sold")[:5]
+    )
+
+    context = {
+        "store": store,
+        "memberships": store.memberships.select_related("user").order_by("role"),
+        "product_count": product.all_objects.filter(store=store).count(),
+        "department_count": department.all_objects.filter(store=store).count(),
+        "txn_count": totals["txn_count"] or 0,
+        "revenue": totals["revenue"] or 0,
+        "tax_total": totals["tax_total"] or 0,
+        "by_payment": by_payment,
+        "top_products": top_products,
+        "recent_txns": recent_txns,
+    }
+    return render(request, "stores/platform_store_detail.html", context)
+
+
+@super_admin_required
 def platform_store_users(request, store_id):
     """Manage a store's users: list + assign existing/new users with credentials."""
     store = Store.objects.get(pk=store_id)

@@ -125,8 +125,8 @@
                     {% for row in stores %}
                     <tr>
                         <td>
-                            <div class="font-weight-bold text-dark">{{ row.store.name }}</div>
-                            <small class="text-muted">{{ row.store.store_address|default:"—" }}</small>
+                            <a href="{% url 'platform_store_detail' row.store.id %}" class="font-weight-bold text-dark">{{ row.store.name }}</a>
+                            <div><small class="text-muted">{{ row.store.store_address|default:"—" }}</small></div>
                         </td>
                         <td><span class="badge badge-light border pill">{{ row.store.plan|upper }}</span></td>
                         <td><i class="fas fa-users text-gray-400 mr-1"></i>{{ row.user_count }}</td>

@@ -286,3 +286,41 @@ class PlatformSuperAdminTests(TestCase):
 
         with self.assertRaises(ValidationError):
             StoreMembership(store=self.store, user=None, role=StoreMembership.ROLE_SUPER_ADMIN).clean()
+
+    # ---- store detail page --------------------------------------------
+    def test_store_detail_shows_profile_stats_users_and_transactions(self):
+        from transaction.models import transaction as Transaction
+        from django.utils import timezone as dj_tz
+
+        Transaction.all_objects.create(
+            store=self.store,
+            transaction_dt=dj_tz.now().replace(tzinfo=None),
+            transaction_id="DETAIL1",
+            user=self.owner,
+            total_sale=Decimal("250.00"),
+            sub_total=Decimal("250.00"),
+            tax_total=Decimal("0"),
+            deposit_total=Decimal("0"),
+            payment_type="CASH",
+            receipt="r",
+            products="[]",
+        )
+        self.login_as(self.super_admin)
+        resp = self.client.get(reverse("platform_store_detail", args=[self.store.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Tenant Store")
+        self.assertContains(resp, "250.00")
+        self.assertContains(resp, "DETAIL1")
+        self.assertContains(resp, "tenant")          # owner listed in users card
+
+    def test_store_detail_denied_to_tenants(self):
+        self.login_as(self.owner)
+        resp = self.client.get(reverse("platform_store_detail", args=[self.store.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotIn("/platform", resp.url)
+
+    def test_dashboard_rows_link_to_detail(self):
+        self.login_as(self.super_admin)
+        resp = self.client.get(reverse("platform_dashboard"))
+        detail_url = reverse("platform_store_detail", args=[self.store.id])
+        self.assertContains(resp, detail_url)
