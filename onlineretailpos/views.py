@@ -108,9 +108,10 @@ def retail_display(request,values=None):
         img_list = [ path+i for i in  os.listdir(path) if i.lower().endswith(('.jpg','.jpeg','.png','.webp','.gif'))] if os.path.exists(f"./{path}") else []
         promo_img = f"{settings.STATIC_URL}{img_list[0]}" if img_list else None
 
+        store = getattr(request, "store", None)
         return JsonResponse({
-            'store': settings.STORE_NAME,
-            'currency': 'PKR',
+            'store': store.store_name if store else settings.STORE_NAME,
+            'currency': store.currency if store else 'PKR',
             'items': items,
             'discount': 0,
             'promo': {
@@ -129,7 +130,7 @@ def retail_display(request,values=None):
         shutil.copytree(f"./{path}", f"{settings.STATIC_ROOT}/{path}", dirs_exist_ok=True)
     img_list = [ path+i for i in  os.listdir(path) if not i.endswith('.md')]
     
-    return render(request,'retailDisplay.html',context={"store_name":settings.STORE_NAME, "display_images":img_list})
+    return render(request,'retailDisplay.html',context={"store_name":request.store.store_name if getattr(request, "store", None) else settings.STORE_NAME, "display_images":img_list})
 
 
 @login_required(login_url="/user/login/")
@@ -168,7 +169,8 @@ def report_regular(request,start_date,end_date):
 
     return render(request,"reportsRegular.html", context={
             "table_html":date_group.to_html(classes= "table table-bordered table-hover h6 text-gray-900 border-5"),
-            "start_date":start_date,"end_date":end_date,"store_name":settings.STORE_NAME,
+            "start_date":start_date,"end_date":end_date,
+            "store_name":request.store.store_name if getattr(request, "store", None) else settings.STORE_NAME,
             })
 
 
@@ -305,9 +307,9 @@ def user_login(request):
             request.session["Tax_Total"] = 0.00
             return redirect('home')
         else:
-            return render(request, 'registration/login.html',context={'error':True,"store_name":settings.STORE_NAME})
+            return render(request, 'registration/login.html',context={'error':True,"store_name":"Online Retail POS"})
     else:
-        return render(request, 'registration/login.html',context={"store_name":settings.STORE_NAME},)
+        return render(request, 'registration/login.html',context={"store_name":"Online Retail POS"},)
 
 
 @login_required(login_url="/user/login/")

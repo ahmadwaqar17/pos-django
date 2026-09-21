@@ -1,9 +1,10 @@
 from django.contrib import admin
 from .models import displayed_items
+from onlineretailpos.admin_scoping import StoreScopedAdmin
 
 # Register your models here.
 @admin.register(displayed_items)
-class DisplayedItems(admin.ModelAdmin):
+class DisplayedItems(StoreScopedAdmin, admin.ModelAdmin):
     list_display = ('barcode','display_name','display_color','variable_price')
 
 

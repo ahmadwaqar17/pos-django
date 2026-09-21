@@ -1,13 +1,18 @@
 from django.db import models
 from django.template.defaultfilters import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
+from stores.managers import StoreScopedManager
+
 PERCENTAGE_VALIDATOR = [MinValueValidator(0), MaxValueValidator(100)]
 
 
 # Create your models here.
 class product(models.Model):
+    objects = StoreScopedManager()
+    all_objects = models.Manager()
+    store            = models.ForeignKey("stores.store",on_delete=models.RESTRICT,null=False,blank=False)
     department       = models.ForeignKey("department",on_delete=models.RESTRICT,null=False,blank=False)
-    barcode          = models.CharField(unique=True,max_length=16,blank = False,null=False)
+    barcode          = models.CharField(max_length=16,blank = False,null=False)
     name             = models.CharField(max_length=125, blank = False, null = False)
     sales_price      = models.DecimalField(max_digits=7,decimal_places=2,null=False,blank = False)
     qty              = models.IntegerField(default=0,null=False)
@@ -15,6 +20,11 @@ class product(models.Model):
     tax_category     = models.ForeignKey("tax",on_delete=models.RESTRICT,null=False,blank=False)
     deposit_category = models.ForeignKey("deposit",on_delete=models.RESTRICT,null=False,blank=False)
     product_desc     = models.TextField(blank=True,null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["store","barcode"],name="uniq_product_barcode_per_store"),
+        ]
 
     def __str__(self) -> str:
         return str(self.barcode) 
@@ -45,9 +55,18 @@ class product(models.Model):
 
 
 class department(models.Model):
-    department_name = models.CharField(max_length=32,unique=True,null=False,blank=False)
+    objects = StoreScopedManager()
+    all_objects = models.Manager()
+    store           = models.ForeignKey("stores.store",on_delete=models.RESTRICT,null=False,blank=False)
+    department_name = models.CharField(max_length=32,null=False,blank=False)
     department_desc = models.TextField(blank=True)
-    department_slug = models.SlugField(max_length=32,unique=True,blank=True)
+    department_slug = models.SlugField(max_length=32,blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["store","department_name"],name="uniq_department_name_per_store"),
+            models.UniqueConstraint(fields=["store","department_slug"],name="uniq_department_slug_per_store"),
+        ]
     
     def __str__(self):
         return self.department_name
@@ -58,7 +77,10 @@ class department(models.Model):
 
 
 class tax(models.Model):
-    tax_category    = models.CharField(max_length=32,unique=True,null=False,blank=False)
+    objects = StoreScopedManager()
+    all_objects = models.Manager()
+    store           = models.ForeignKey("stores.store",on_delete=models.RESTRICT,null=False,blank=False)
+    tax_category    = models.CharField(max_length=32,null=False,blank=False)
     tax_desc        = models.TextField(blank=True)
     tax_percentage  = models.DecimalField(max_digits=6, decimal_places=3, validators=PERCENTAGE_VALIDATOR,null=False,blank=False)
 
@@ -67,10 +89,16 @@ class tax(models.Model):
     
     class Meta:
         verbose_name_plural = "Tax Information"
+        constraints = [
+            models.UniqueConstraint(fields=["store","tax_category"],name="uniq_tax_category_per_store"),
+        ]
 
 
 class deposit(models.Model):
-    deposit_category    = models.CharField(max_length=32,unique=True,null=False,blank=False)
+    objects = StoreScopedManager()
+    all_objects = models.Manager()
+    store               = models.ForeignKey("stores.store",on_delete=models.RESTRICT,null=False,blank=False)
+    deposit_category    = models.CharField(max_length=32,null=False,blank=False)
     deposit_desc        = models.TextField(blank=True)
     deposit_value       = models.DecimalField(max_digits=7,decimal_places=2,null=False,blank=False)
 
@@ -79,4 +107,7 @@ class deposit(models.Model):
     
     class Meta:
         verbose_name_plural = "Deposit Information"
+        constraints = [
+            models.UniqueConstraint(fields=["store","deposit_category"],name="uniq_deposit_category_per_store"),
+        ]
 

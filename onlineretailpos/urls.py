@@ -16,7 +16,7 @@ Including another URLconf
 from django.views.static import serve
 from django.conf import settings
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import path, re_path, include
 from transaction import views as transaction_views
 from cart import views as cart_views
 from . import views as views
@@ -29,6 +29,9 @@ from django.views.generic.base import RedirectView
 urlpatterns = [
         #Admin URL
         path('staff_portal/', admin.site.urls ),
+
+        # SaaS onboarding
+        path("", include("stores.urls")),
 
         # User URLs
         path("user/login/", views.user_login, name="user_login"),

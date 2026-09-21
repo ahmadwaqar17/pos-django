@@ -5,6 +5,7 @@ from django.utils.http import urlencode
 from django.utils.html import format_html
 from import_export.admin import ImportExportModelAdmin
 from import_export import resources
+from onlineretailpos.admin_scoping import StoreScopedAdmin
 
 
 class ProductResource(resources.ModelResource):
@@ -20,7 +21,7 @@ class ProductResource(resources.ModelResource):
 
 
 @admin.register(product)
-class ProductAdmin(ImportExportModelAdmin):
+class ProductAdmin(StoreScopedAdmin, ImportExportModelAdmin):
     editable_list = ["sales_price",'qty']
     list_display = ("barcode","name","sales_price","qty","department","tax_category","deposit_category")
     list_filter = ("department","tax_category", "deposit_category",)
@@ -33,7 +34,7 @@ class ProductAdmin(ImportExportModelAdmin):
 
 
 @admin.register(department)
-class DepartmentAdmin(ImportExportModelAdmin):
+class DepartmentAdmin(StoreScopedAdmin, ImportExportModelAdmin):
     list_display= ('department_name','department_desc','Products_In_Department')
     
     def Products_In_Department(self,obj):
@@ -47,11 +48,11 @@ class DepartmentAdmin(ImportExportModelAdmin):
 
 
 @admin.register(tax)
-class TaxAdmin(ImportExportModelAdmin):
+class TaxAdmin(StoreScopedAdmin, ImportExportModelAdmin):
     list_display= ('tax_category','tax_percentage','tax_desc')
 
 
 @admin.register(deposit)
-class DepositAdmin(ImportExportModelAdmin):
+class DepositAdmin(StoreScopedAdmin, ImportExportModelAdmin):
     list_display= ('deposit_category','deposit_value','deposit_desc')
     

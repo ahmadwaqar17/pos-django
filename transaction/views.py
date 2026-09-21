@@ -42,11 +42,13 @@ def transactionReceipt(request,transNo):
         items = ast.literal_eval(t.products)
         for it in items:
             it['line_total'] = round(float(it['price']) * float(it['quantity']), 2)
+        store = getattr(request, "store", None) or t.store
         return render(request,'receiptView.html',context={
             'receipt': t.receipt, 'transNo': transNo,
             'txn': t, 'items': items,
-            'store_name': settings.STORE_NAME, 'store_address': settings.STORE_ADDRESS,
-            'store_phone': settings.STORE_PHONE,
+            'store_name': store.store_name if store else settings.STORE_NAME,
+            'store_address': store.store_address if store else settings.STORE_ADDRESS,
+            'store_phone': store.store_phone if store else settings.STORE_PHONE,
         })
     except transaction.DoesNotExist:
         raise Http404("No Transactions Found!!!")
@@ -163,17 +165,18 @@ def endTransaction(request,type,value):
         # Card Transactions
         cart = request.session[settings.CART_SESSION_ID]
         total = round(pd.DataFrame(cart).T["line_total"].astype(float).sum(),2)
+        store = getattr(request, "store", None)
         if type == "card": # Card Transaction
             # EBT Transaction
             if value=="EBT": 
-                return_transaction = addTransaction(request.user,"EBT",total,cart,total)
+                return_transaction = addTransaction(request.user,"EBT",total,cart,total,store=store)
             # DEBIT/CREDIT Transaction
             elif value=="DEBIT_CREDIT": 
-                return_transaction = addTransaction(request.user,"DEBIT/CREDIT",total,cart,total)
+                return_transaction = addTransaction(request.user,"DEBIT/CREDIT",total,cart,total,store=store)
         elif type=="cash": # Cash Transaction
             value = round(float(value),2)
             if value>= total: 
-                return_transaction = addTransaction(request.user,"CASH",total,cart,value)
+                return_transaction = addTransaction(request.user,"CASH",total,cart,value,store=store)
         if return_transaction:
             Cart(request).clear()
             return redirect(f"/endTransaction/{return_transaction.transaction_id}/?type={type}&value={value}&total={total}")
@@ -183,7 +186,7 @@ def endTransaction(request,type,value):
         return redirect("register")
 
 
-def addTransaction(user,payment_type,total,cart,value):
+def addTransaction(user,payment_type,total,cart,value,store=None):
     transaction_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
     short_id = transaction_id[:14]
     cart_df = pd.DataFrame(cart).T.reset_index(drop=True)
@@ -192,6 +195,12 @@ def addTransaction(user,payment_type,total,cart,value):
     deposit_total = round(cart_df["deposit_value"].astype(float).sum(),2)
     receipt_date = datetime.now().strftime('%d %b %Y  %I:%M %p')
     w = settings.RECEIPT_CHAR_COUNT
+
+    # SaaS: store branding wins over env-var defaults
+    store_name = store.store_name if store and store.store_name else settings.STORE_NAME
+    store_address = store.store_address if store and store.store_address else settings.STORE_ADDRESS
+    store_phone = store.store_phone if store else settings.STORE_PHONE
+    receipt_footer = store.receipt_footer if store and store.receipt_footer else settings.RECEIPT_FOOTER
 
     # Item lines
     items_lines = []
@@ -204,10 +213,10 @@ def addTransaction(user,payment_type,total,cart,value):
     cart_string = "\n".join(items_lines)
 
     receipt = f"{'='*w}\n"
-    receipt += f"{settings.STORE_NAME.center(w)}\n"
-    receipt += f"{settings.STORE_ADDRESS.center(w)}\n"
-    if settings.STORE_PHONE:
-        receipt += f"{'Ph: '+str(settings.STORE_PHONE).center(w-4)}\n"
+    receipt += f"{store_name.center(w)}\n"
+    receipt += f"{store_address.center(w)}\n"
+    if store_phone:
+        receipt += f"{'Ph: '+str(store_phone).center(w-4)}\n"
     receipt += f"{'='*w}\n"
     receipt += f"{receipt_date.center(w)}\n"
     receipt += f"{'Receipt #'+short_id.center(w-8)}\n"
@@ -227,7 +236,7 @@ def addTransaction(user,payment_type,total,cart,value):
     receipt += f" {str(payment_type):<15}PKR {round(value,2):>8.2f}\n"
     receipt += f" {'CHANGE:':<15}PKR {round(value-total,2):>8.2f}\n"
     receipt += f"{'='*w}\n"
-    receipt += f"{settings.RECEIPT_FOOTER.center(w)}\n"
+    receipt += f"{receipt_footer.center(w)}\n"
     receipt += f"{'='*w}\n"
     receipt += f"{('Trans ID: '+transaction_id).center(w)}\n"
     receipt += f"{'='*w}"
@@ -241,4 +250,5 @@ def addTransaction(user,payment_type,total,cart,value):
     return transaction.objects.create( transaction_id = transaction_id , transaction_dt = datetime.strptime(transaction_id[:-6],'%Y%m%d%H%M%S'),
             user = user, total_sale= total, sub_total = round(total-tax_total,2),tax_total=tax_total, deposit_total = deposit_total,
             payment_type = payment_type, receipt = receipt, products = str(cart_df.to_dict('records')),
+            store = store,
         )

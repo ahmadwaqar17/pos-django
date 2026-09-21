@@ -11,6 +11,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from inventory.models import department, deposit, product, tax
+from stores.models import Store, StoreMembership
 
 from .models import transaction
 
@@ -22,16 +23,19 @@ class RegisterSaleTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="cashier", password="pw")
-        cls.item = product.objects.create(
-            department=department.objects.create(department_name="Clothing"),
+        cls.store = Store.objects.create(name="Test Store", slug="test-store", store_name="Test Store")
+        StoreMembership.objects.create(store=cls.store, user=cls.user)
+        cls.item = product.all_objects.create(
+            store=cls.store,
+            department=department.all_objects.create(store=cls.store, department_name="Clothing"),
             barcode="1001",
             name="Men's Kameez Shalwar",
             sales_price=PRICE,
             qty=10,
             cost_price=Decimal("1000.00"),
-            tax_category=tax.objects.create(tax_category="Zero Tax", tax_percentage=Decimal("0")),
-            deposit_category=deposit.objects.create(
-                deposit_category="No Deposit", deposit_value=Decimal("0.00")
+            tax_category=tax.all_objects.create(store=cls.store, tax_category="Zero Tax", tax_percentage=Decimal("0")),
+            deposit_category=deposit.all_objects.create(
+                store=cls.store, deposit_category="No Deposit", deposit_value=Decimal("0.00")
             ),
         )
 
@@ -62,6 +66,7 @@ class RegisterSaleTests(TestCase):
         self.assertEqual(sale.payment_type, "CASH")
         self.assertEqual(sale.total_sale, Decimal("5000.00"))
         self.assertEqual(sale.user, self.user)
+        self.assertEqual(sale.store, self.store)               # sale is tagged with the store
         self.item.refresh_from_db()
         self.assertEqual(self.item.qty, 8)                     # one decrement per unit sold
         self.assertEqual(self.client.session[CART], {})        # cart emptied

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'inventory',
     'transaction',
     'cart',
+    'stores',
     'import_export',
     'rangefilter',
     'django_admin_logs',
@@ -50,6 +51,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'stores.middleware.StoreMiddleware',          # SaaS: resolve request.store per request
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

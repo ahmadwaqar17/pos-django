@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils.http import urlencode
 from import_export.admin import ImportExportModelAdmin
 from rangefilter.filters import DateTimeRangeFilter
+from onlineretailpos.admin_scoping import StoreScopedAdmin
 
 # from import_export import resources
 # class TransactionResource(resources.ModelResource):
@@ -15,7 +16,7 @@ from rangefilter.filters import DateTimeRangeFilter
 
 # Register your models here.
 @admin.register(transaction)
-class TransactionAdmin(ImportExportModelAdmin):
+class TransactionAdmin(StoreScopedAdmin, ImportExportModelAdmin):
     list_display= ("transaction_dt","transaction_id","total_sale","tax_total","payment_type","products_link","receipt_link",)
     fields = ["user","transaction_dt","transaction_id", "total_sale","sub_total","tax_total","deposit_total","payment_type","receipt","receipt_link","products_link"]
     list_filter = (("transaction_dt",DateTimeRangeFilter),"transaction_dt","user","payment_type",)
@@ -54,7 +55,7 @@ class TransactionAdmin(ImportExportModelAdmin):
 
 
 @admin.register(productTransaction)
-class ProductTransactionAdmin(ImportExportModelAdmin):
+class ProductTransactionAdmin(StoreScopedAdmin, ImportExportModelAdmin):
     list_display= ("transaction_date_time","barcode","name","qty","sales_price","sales_amount","tax_amount","deposit_amount","total_amount","link_transaction",)
     fields = ["transaction_date_time","barcode","name","department","qty","sales_price","cost_price","profit_per_item","Profit_amount","tax_category","tax_percentage","deposit_category","deposit","sales_amount","tax_amount",
         "deposit_amount","total_amount","payment_type","link_transaction",]

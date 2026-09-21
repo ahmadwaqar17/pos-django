@@ -6,6 +6,7 @@ from django.conf import settings
 from django.shortcuts import redirect
 import pandas as pd
 from inventory.models import product as Product
+from stores.managers import StoreScopedManager
 
 
 class Cart(object):
@@ -89,7 +90,10 @@ class Cart(object):
 
 # Create your models here.transaction_dt
 class displayed_items(models.Model):
-    barcode          = models.CharField(unique=True,max_length=16,blank = False,null=False)
+    objects = StoreScopedManager()
+    all_objects = models.Manager()
+    store            = models.ForeignKey("stores.store",on_delete=models.RESTRICT,null=False,blank=False)
+    barcode          = models.CharField(max_length=16,blank = False,null=False)
     display_name     = models.CharField(max_length=125, blank = False, null = False)
     display_info     = models.CharField(max_length=125, blank = True, null = False, default = "")
     display_color    = ColorField(default='#575757')
@@ -104,3 +108,6 @@ class displayed_items(models.Model):
         return False
     class Meta:
         verbose_name_plural = "Displayed Item"
+        constraints = [
+            models.UniqueConstraint(fields=["store","barcode"],name="uniq_displayed_barcode_per_store"),
+        ]
