@@ -1,99 +1,91 @@
-{% extends 'base.html' %}
+{% extends 'stores/platform_base.html' %}
 {% load static %}
+{% load platform_extras %}
 
-{% block title %}{{ store.name }} | Platform | Online Retail POS{% endblock %}
+{% block platform_title %}{{ store.name }}{% endblock %}
+{% block nav_active_stores %}active{% endblock %}
 
-{% block sidebar %}
-<ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion toggled" id="accordionSidebar">
-    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url 'platform_dashboard' %}">
-        <div class="sidebar-brand-icon"><i class="fas fa-layer-group"></i></div>
-        <div class="sidebar-brand-text">POS Platform</div>
+{% block platform_sidebar_extra %}
+<li class="nav-item active">
+    <a class="nav-link" href="{% url 'platform_store_detail' store.id %}">
+        <i class="fas fa-fw fa-store"></i>
+        <span>{{ store.name }}</span>
     </a>
-    <hr class="sidebar-divider my-0">
-    <li class="nav-item">
-        <a class="nav-link" href="{% url 'platform_dashboard' %}">
-            <i class="fas fa-fw fa-arrow-left"></i>
-            <span>All Stores</span>
-        </a>
-    </li>
-    <hr class="sidebar-divider">
-    <div class="sidebar-heading">Viewing</div>
-    <li class="nav-item active">
-        <span class="nav-link text-white"><i class="fas fa-store mr-2"></i>{{ store.name }}</span>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" href="{% url 'platform_store_users' store.id %}">
-            <i class="fas fa-fw fa-users"></i>
-            <span>Manage Users</span>
-        </a>
-    </li>
-</ul>
+</li>
 {% endblock %}
 
-{% block nav-item %}
-<div class="mb-0 font-weight-bold h5 text-gray-800 text-uppercase p-3 d-flex align-items-center justify-content-between">
-    <span><i class="fas fa-store mr-2 text-primary"></i>{{ store.name }}</span>
+{% block platform_content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div class="d-flex align-items-center" style="gap:.9rem;">
+        <span class="store-avatar av-0" style="width:52px;height:52px;font-size:1rem;">{{ store.name|slice:":2"|upper }}</span>
+        <div>
+            <h1 class="h3 font-weight-bold text-gray-800 mb-0" style="letter-spacing:-.01em;">{{ store.name }}</h1>
+            <div class="mt-1">
+                <span class="plan-pill plan-{{ store.plan }}">{{ store.plan }}</span>
+                {% if store.is_active %}
+                <span class="status-pill status-active ml-1">Active</span>
+                {% else %}
+                <span class="status-pill status-suspended ml-1">Suspended</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
     <div>
-        <span class="badge badge-light border p-2 mr-2">{{ store.plan|upper }}</span>
-        {% if store.is_active %}
-        <span class="badge badge-success p-2">ACTIVE</span>
-        {% else %}
-        <span class="badge badge-danger p-2">SUSPENDED</span>
-        {% endif %}
+        <a href="{% url 'platform_store_users' store.id %}" class="btn btn-primary btn-sm shadow-sm" style="border-radius:10px;">
+            <i class="fas fa-users mr-1"></i> Manage Users
+        </a>
+        <form method="post" action="{% url 'platform_toggle_store' store.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm {% if store.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" style="border-radius:10px;">
+                {% if store.is_active %}<i class="fas fa-pause mr-1"></i>Suspend{% else %}<i class="fas fa-play mr-1"></i>Activate{% endif %}
+            </button>
+        </form>
     </div>
 </div>
-{% endblock %}
 
-{% block content %}
-<style>
-    .stat-card { border-left: .25rem solid #4f46e5 !important; }
-    .stat-card .h5 { font-weight: 800; }
-    .info-key { font-size: .72rem; font-weight: 800; letter-spacing: .06em; color: #b7b9cc; text-transform: uppercase; }
-    .section-title { font-size: .8rem; letter-spacing: .06em; }
-</style>
-
+<!-- Stats -->
 <div class="row mb-4">
     <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card shadow-sm h-100 py-2">
-            <div class="card-body d-flex align-items-center justify-content-between">
+        <div class="card stat-card shadow-sm h-100 py-3">
+            <div class="card-body d-flex align-items-center justify-content-between py-1">
                 <div>
                     <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Transactions</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ txn_count }}</div>
+                    <div class="h4 mb-0 font-weight-bold text-gray-800">{{ txn_count }}</div>
                 </div>
-                <i class="fas fa-receipt fa-2x text-gray-300"></i>
+                <div class="stat-icon indigo"><i class="fas fa-receipt"></i></div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card shadow-sm h-100 py-2" style="border-left-color:#1cc88a !important;">
-            <div class="card-body d-flex align-items-center justify-content-between">
+        <div class="card stat-card shadow-sm h-100 py-3">
+            <div class="card-body d-flex align-items-center justify-content-between py-1">
                 <div>
                     <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Revenue</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ store.currency }} {{ revenue|floatformat:2 }}</div>
+                    <div class="h4 mb-0 font-weight-bold text-gray-800">{{ store.currency }} {{ revenue|floatformat:2 }}</div>
                 </div>
-                <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                <div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card shadow-sm h-100 py-2" style="border-left-color:#36b9cc !important;">
-            <div class="card-body d-flex align-items-center justify-content-between">
+        <div class="card stat-card shadow-sm h-100 py-3">
+            <div class="card-body d-flex align-items-center justify-content-between py-1">
                 <div>
-                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Products / Departments</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ product_count }} <small class="text-muted">/ {{ department_count }}</small></div>
+                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Products / Depts</div>
+                    <div class="h4 mb-0 font-weight-bold text-gray-800">{{ product_count }} <small class="text-muted">/ {{ department_count }}</small></div>
                 </div>
-                <i class="fas fa-boxes fa-2x text-gray-300"></i>
+                <div class="stat-icon teal"><i class="fas fa-boxes"></i></div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card shadow-sm h-100 py-2" style="border-left-color:#f6c23e !important;">
-            <div class="card-body d-flex align-items-center justify-content-between">
+        <div class="card stat-card shadow-sm h-100 py-3">
+            <div class="card-body d-flex align-items-center justify-content-between py-1">
                 <div>
                     <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Tax Collected</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ store.currency }} {{ tax_total|floatformat:2 }}</div>
+                    <div class="h4 mb-0 font-weight-bold text-gray-800">{{ store.currency }} {{ tax_total|floatformat:2 }}</div>
                 </div>
-                <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                <div class="stat-icon amber"><i class="fas fa-percentage"></i></div>
             </div>
         </div>
     </div>
@@ -102,8 +94,8 @@
 <div class="row">
     <!-- Left: profile + recent transactions -->
     <div class="col-lg-8">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header py-3">
+        <div class="card shadow-sm mb-4" style="border-radius:14px;">
+            <div class="card-header py-3 bg-white">
                 <h6 class="m-0 font-weight-bold text-primary text-uppercase section-title">Store Profile</h6>
             </div>
             <div class="card-body">
@@ -117,28 +109,16 @@
                     <div class="col-sm-4 mb-3"><div class="info-key">Created</div>{{ store.created_at|date:"M d, Y H:i" }}</div>
                     <div class="col-sm-6 mb-0"><div class="info-key">Receipt Footer</div>{{ store.receipt_footer|default:"—" }}</div>
                 </div>
-                <hr>
-                <div class="d-flex" style="gap:.5rem;">
-                    <a class="btn btn-primary btn-sm" href="{% url 'platform_store_users' store.id %}">
-                        <i class="fas fa-users mr-1"></i> Manage Users
-                    </a>
-                    <form method="post" action="{% url 'platform_toggle_store' store.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm {% if store.is_active %}btn-warning{% else %}btn-success{% endif %}">
-                            {% if store.is_active %}<i class="fas fa-pause mr-1"></i>Suspend Store{% else %}<i class="fas fa-play mr-1"></i>Activate Store{% endif %}
-                        </button>
-                    </form>
-                </div>
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header py-3">
+        <div class="card shadow-sm mb-4" style="border-radius:14px;">
+            <div class="card-header py-3 bg-white">
                 <h6 class="m-0 font-weight-bold text-primary text-uppercase section-title">Recent Transactions</h6>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover mb-0">
+                    <table class="table table-hover platform-table mb-0">
                         <thead class="thead-light">
                             <tr><th>Receipt #</th><th>Date</th><th>Cashier</th><th>Payment</th><th class="text-right">Total</th></tr>
                         </thead>
@@ -148,7 +128,7 @@
                                 <td><code>{{ t.transaction_id|slice:":14" }}</code></td>
                                 <td><small class="text-muted">{{ t.transaction_dt|date:"M d, Y H:i" }}</small></td>
                                 <td>{{ t.user__username|default:"—" }}</td>
-                                <td><span class="badge badge-light border">{{ t.payment_type }}</span></td>
+                                <td><span class="plan-pill plan-bootstrap">{{ t.payment_type }}</span></td>
                                 <td class="text-right font-weight-bold text-success">{{ store.currency }} {{ t.total_sale|floatformat:2 }}</td>
                             </tr>
                             {% empty %}
@@ -163,8 +143,8 @@
 
     <!-- Right: users, payment mix, top products -->
     <div class="col-lg-4">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header py-3">
+        <div class="card shadow-sm mb-4" style="border-radius:14px;">
+            <div class="card-header py-3 bg-white">
                 <h6 class="m-0 font-weight-bold text-primary text-uppercase section-title">Users ({{ memberships|length }})</h6>
             </div>
             <div class="card-body p-0">
@@ -173,13 +153,18 @@
                         {% for m in memberships %}
                         <tr>
                             <td>
-                                <div class="font-weight-bold text-dark">{{ m.user.username }}</div>
-                                <small class="text-muted">{{ m.user.email|default:"no email" }}</small>
+                                <div class="d-flex align-items-center" style="gap:.7rem;">
+                                    <span class="store-avatar av-{{ forloop.counter0|mod:4 }}">{{ m.user.username|slice:":2"|upper }}</span>
+                                    <div>
+                                        <div class="font-weight-bold text-dark">{{ m.user.username }}</div>
+                                        <small class="text-muted">{{ m.user.email|default:"no email" }}</small>
+                                    </div>
+                                </div>
                             </td>
                             <td class="text-right">
-                                {% if m.role == 'owner' %}<span class="badge badge-primary">Owner</span>
-                                {% elif m.role == 'cashier' %}<span class="badge badge-info">Cashier</span>
-                                {% else %}<span class="badge badge-dark">{{ m.role }}</span>{% endif %}
+                                {% if m.role == 'owner' %}<span class="plan-pill plan-standard">Owner</span>
+                                {% elif m.role == 'cashier' %}<span class="plan-pill plan-trial">Cashier</span>
+                                {% else %}<span class="plan-pill plan-bootstrap">{{ m.role }}</span>{% endif %}
                             </td>
                         </tr>
                         {% empty %}
@@ -190,8 +175,8 @@
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header py-3">
+        <div class="card shadow-sm mb-4" style="border-radius:14px;">
+            <div class="card-header py-3 bg-white">
                 <h6 class="m-0 font-weight-bold text-primary text-uppercase section-title">Sales by Payment Type</h6>
             </div>
             <div class="card-body p-0">
@@ -199,7 +184,7 @@
                     <tbody>
                         {% for row in by_payment %}
                         <tr>
-                            <td><span class="badge badge-light border">{{ row.payment_type }}</span></td>
+                            <td><span class="plan-pill plan-bootstrap">{{ row.payment_type }}</span></td>
                             <td class="text-right font-weight-bold">{{ row.line_count }} lines</td>
                         </tr>
                         {% empty %}
@@ -210,8 +195,8 @@
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header py-3">
+        <div class="card shadow-sm mb-4" style="border-radius:14px;">
+            <div class="card-header py-3 bg-white">
                 <h6 class="m-0 font-weight-bold text-primary text-uppercase section-title">Top Products</h6>
             </div>
             <div class="card-body p-0">

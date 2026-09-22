@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% block platform_title %}Platform{% endblock %} | Online Retail POS{% endblock %}
+
+{% block sidebar %}
+<ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+    <!-- Brand -->
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url 'platform_dashboard' %}">
+        <div class="sidebar-brand-icon">
+            <span class="pos-brand-tile"><i class="fas fa-layer-group"></i></span>
+        </div>
+        <div class="sidebar-brand-text">
+            <div class="pos-brand-name">POS Platform</div>
+            <div class="pos-brand-sub">Control Center</div>
+        </div>
+    </a>
+
+    <hr class="sidebar-divider my-0">
+
+    <div class="sidebar-heading">Manage</div>
+    <li class="nav-item {% block nav_active_overview %}{% endblock %}">
+        <a class="nav-link" href="{% url 'platform_dashboard' %}">
+            <i class="fas fa-fw fa-tachometer-alt"></i>
+            <span>Overview</span>
+        </a>
+    </li>
+    <li class="nav-item {% block nav_active_stores %}{% endblock %}">
+        <a class="nav-link" href="{% url 'platform_dashboard' %}#stores">
+            <i class="fas fa-fw fa-store"></i>
+            <span>Registered Stores</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'platform_dashboard' %}#add-store">
+            <i class="fas fa-fw fa-plus-circle"></i>
+            <span>Add Store</span>
+        </a>
+    </li>
+
+    {% block platform_sidebar_extra %}{% endblock %}
+
+    <!-- Bottom account card -->
+    <div class="pos-side-user">
+        <div class="pos-side-avatar">{{ user.username|slice:":2"|upper }}</div>
+        <div class="pos-side-user-meta">
+            <div class="pos-side-user-name">{{ user.username }}</div>
+            <span class="badge badge-light pos-role-chip">SUPER ADMIN</span>
+        </div>
+        <a class="pos-side-logout" href="{% url 'user_logout' %}" title="Sign out">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
+    </div>
+</ul>
+{% endblock %}
+
+{% block content %}
+<style>
+    /* ---------- Platform sidebar ---------- */
+    .pos-brand-tile {
+        width: 42px; height: 42px; border-radius: 12px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #14b8a6, #4f46e5);
+        color: #fff; font-size: 1.15rem;
+        box-shadow: 0 6px 18px rgba(20, 184, 166, .45);
+    }
+    .pos-brand-name { font-weight: 800; font-size: .95rem; letter-spacing: -.01em; line-height: 1.2; }
+    .pos-brand-sub { font-size: .62rem; color: rgba(255, 255, 255, .55); letter-spacing: .14em; text-transform: uppercase; }
+    .sidebar .nav-link { border-radius: 10px; margin: 2px 10px; transition: background .15s ease; }
+    .sidebar .nav-item.active > .nav-link,
+    .sidebar .nav-link:hover { background: rgba(255, 255, 255, .12); }
+    .pos-side-user {
+        margin-top: auto;
+        display: flex; align-items: center; gap: .6rem;
+        padding: 1rem 1.25rem;
+        border-top: 1px solid rgba(255, 255, 255, .14);
+    }
+    .pos-side-avatar {
+        width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+        background: rgba(255, 255, 255, .15);
+        border: 1px solid rgba(255, 255, 255, .25);
+        color: #fff; font-weight: 800; font-size: .85rem;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .pos-side-user-name { color: #fff; font-weight: 700; font-size: .85rem; line-height: 1.2; }
+    .pos-role-chip { font-size: .58rem; letter-spacing: .1em; font-weight: 800; }
+    .pos-side-logout { color: rgba(255, 255, 255, .6); margin-left: auto; font-size: 1rem; }
+    .pos-side-logout:hover { color: #fff; }
+
+    /* ---------- Shared cards / tables ---------- */
+    .stat-card { border: none; border-radius: 14px; }
+    .stat-icon {
+        width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem; color: #fff;
+    }
+    .stat-icon.indigo { background: linear-gradient(135deg, #6366f1, #4338ca); }
+    .stat-icon.green  { background: linear-gradient(135deg, #34d399, #059669); }
+    .stat-icon.teal   { background: linear-gradient(135deg, #22d3ee, #0e7490); }
+    .stat-icon.amber  { background: linear-gradient(135deg, #fbbf24, #d97706); }
+    .store-avatar {
+        width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 800; font-size: .78rem;
+    }
+    .av-0 { background: linear-gradient(135deg, #6366f1, #4338ca); }
+    .av-1 { background: linear-gradient(135deg, #14b8a6, #0f766e); }
+    .av-2 { background: linear-gradient(135deg, #f59e0b, #b45309); }
+    .av-3 { background: linear-gradient(135deg, #ec4899, #be185d); }
+    .plan-pill { font-size: .66rem; font-weight: 800; letter-spacing: .08em; border-radius: 999px; padding: .3rem .7rem; text-transform: uppercase; }
+    .plan-trial { background: #fef3c7; color: #92400e; }
+    .plan-standard { background: #e0e7ff; color: #3730a3; }
+    .plan-bootstrap { background: #e2e8f0; color: #334155; }
+    .status-pill { font-size: .66rem; font-weight: 800; letter-spacing: .08em; border-radius: 999px; padding: .3rem .7rem; }
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-suspended { background: #fee2e2; color: #991b1b; }
+    .section-title { font-size: .8rem; letter-spacing: .06em; }
+    .platform-table th { font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; }
+</style>
+
+{% block platform_content %}{% endblock %}
+{% endblock %}

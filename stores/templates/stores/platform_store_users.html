@@ -1,55 +1,41 @@
-{% extends 'base.html' %}
+{% extends 'stores/platform_base.html' %}
 {% load static %}
+{% load platform_extras %}
 
-{% block title %}{{ store.name }} · Users | Online Retail POS{% endblock %}
+{% block platform_title %}{{ store.name }} · Users{% endblock %}
+{% block nav_active_stores %}active{% endblock %}
 
-{% block sidebar %}
-<ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion toggled" id="accordionSidebar">
-    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url 'platform_dashboard' %}">
-        <div class="sidebar-brand-icon"><i class="fas fa-layer-group"></i></div>
-        <div class="sidebar-brand-text">POS Platform</div>
+{% block platform_sidebar_extra %}
+<li class="nav-item active">
+    <a class="nav-link" href="{% url 'platform_store_detail' store.id %}">
+        <i class="fas fa-fw fa-store"></i>
+        <span>{{ store.name }}</span>
     </a>
-    <hr class="sidebar-divider my-0">
-    <li class="nav-item">
-        <a class="nav-link" href="{% url 'platform_dashboard' %}">
-            <i class="fas fa-fw fa-arrow-left"></i>
-            <span>All Stores</span>
-        </a>
-    </li>
-    <hr class="sidebar-divider">
-    <div class="sidebar-heading">Managing</div>
-    <li class="nav-item active">
-        <span class="nav-link text-white"><i class="fas fa-store mr-2"></i>{{ store.name }}</span>
-    </li>
-</ul>
+</li>
 {% endblock %}
 
-{% block nav-item %}
-<div class="mb-0 font-weight-bold h5 text-gray-800 text-uppercase p-3 d-flex align-items-center justify-content-between">
-    <span><i class="fas fa-users mr-2 text-primary"></i>{{ store.name }} — Users</span>
-    <span class="badge {% if store.is_active %}badge-success{% else %}badge-danger{% endif %} p-2">{{ store.plan|upper }}</span>
+{% block platform_content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="h3 font-weight-bold text-gray-800 mb-1" style="letter-spacing:-.01em;">
+            {{ store.name }} — Users
+        </h1>
+        <p class="text-muted mb-0">Assign cashiers and owners, and set their credentials.</p>
+    </div>
+    <a href="{% url 'platform_store_detail' store.id %}" class="btn btn-sm btn-outline-primary">
+        <i class="fas fa-arrow-left mr-1"></i> Back to store
+    </a>
 </div>
-{% endblock %}
-
-{% block content %}
-<style>
-    .user-card-row td { vertical-align: middle; }
-    .avatar-sm {
-        width: 34px; height: 34px; border-radius: 10px;
-        display: inline-flex; align-items: center; justify-content: center;
-        background: #eef2ff; color: #4f46e5; font-weight: 800; font-size: .8rem;
-    }
-</style>
 
 <div class="row">
     <!-- Assigned users -->
     <div class="col-lg-7 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary text-uppercase" style="font-size:.8rem;letter-spacing:.06em;">Assigned Users</h6>
+        <div class="card shadow-sm h-100" style="border-radius:14px;">
+            <div class="card-header py-3 bg-white">
+                <h6 class="m-0 font-weight-bold text-primary text-uppercase section-title">Assigned Users ({{ memberships|length }})</h6>
             </div>
             <div class="card-body p-0">
-                <table class="table user-card-row mb-0">
+                <table class="table platform-table mb-0">
                     <thead class="thead-light">
                         <tr><th>User</th><th>Role</th><th>Joined</th><th class="text-right"></th></tr>
                     </thead>
@@ -57,8 +43,8 @@
                         {% for m in memberships %}
                         <tr>
                             <td>
-                                <div class="d-flex align-items-center" style="gap:.6rem;">
-                                    <span class="avatar-sm">{{ m.user.username|slice:":2"|upper }}</span>
+                                <div class="d-flex align-items-center" style="gap:.7rem;">
+                                    <span class="store-avatar av-{{ forloop.counter0|mod:4 }}">{{ m.user.username|slice:":2"|upper }}</span>
                                     <div>
                                         <div class="font-weight-bold text-dark">{{ m.user.username }}</div>
                                         <small class="text-muted">{{ m.user.email|default:"no email" }}</small>
@@ -66,9 +52,9 @@
                                 </div>
                             </td>
                             <td>
-                                {% if m.role == 'owner' %}<span class="badge badge-primary">Owner</span>
-                                {% elif m.role == 'cashier' %}<span class="badge badge-info">Cashier</span>
-                                {% else %}<span class="badge badge-dark">{{ m.role }}</span>{% endif %}
+                                {% if m.role == 'owner' %}<span class="plan-pill plan-standard">Owner</span>
+                                {% elif m.role == 'cashier' %}<span class="plan-pill plan-trial">Cashier</span>
+                                {% else %}<span class="plan-pill plan-bootstrap">{{ m.role }}</span>{% endif %}
                             </td>
                             <td><small class="text-muted">{{ m.created_at|date:"M d, Y" }}</small></td>
                             <td class="text-right">
@@ -91,9 +77,9 @@
 
     <!-- Assign user -->
     <div class="col-lg-5 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary text-uppercase" style="font-size:.8rem;letter-spacing:.06em;">Assign User to Store</h6>
+        <div class="card shadow-sm h-100" style="border-radius:14px;">
+            <div class="card-header py-3 bg-white">
+                <h6 class="m-0 font-weight-bold text-primary text-uppercase section-title">Assign User to Store</h6>
             </div>
             <div class="card-body">
                 {% if error %}
@@ -104,27 +90,27 @@
                 <form method="post">
                     {% csrf_token %}
                     <div class="form-group">
-                        <label class="font-weight-bold text-dark mb-1" style="font-size:.8rem;">USERNAME</label>
-                        <input type="text" name="username" maxlength="150" class="form-control" required autocomplete="off">
+                        <label class="info-key d-block mb-1">Username</label>
+                        <input type="text" name="username" maxlength="150" class="form-control" required autocomplete="off" placeholder="e.g. cashier2">
                         <small class="text-muted">Existing users are matched by username or email and assigned here.</small>
                     </div>
                     <div class="form-group">
-                        <label class="font-weight-bold text-dark mb-1" style="font-size:.8rem;">EMAIL</label>
-                        <input type="email" name="email" class="form-control" required>
+                        <label class="info-key d-block mb-1">Email</label>
+                        <input type="email" name="email" class="form-control" required placeholder="user@example.com">
                     </div>
                     <div class="form-group">
-                        <label class="font-weight-bold text-dark mb-1" style="font-size:.8rem;">PASSWORD</label>
+                        <label class="info-key d-block mb-1">Password</label>
                         <input type="password" name="password" class="form-control" required>
                         <small class="text-muted">Sets (or resets) the user's login password.</small>
                     </div>
                     <div class="form-group">
-                        <label class="font-weight-bold text-dark mb-1" style="font-size:.8rem;">ROLE</label>
+                        <label class="info-key d-block mb-1">Role</label>
                         <select name="role" class="form-control">
                             <option value="owner">Owner</option>
                             <option value="cashier">Cashier</option>
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-block" style="padding:.7rem;">
+                    <button type="submit" class="btn btn-primary btn-block" style="padding:.7rem;border-radius:10px;">
                         <i class="fas fa-user-plus mr-2"></i> Assign / Update User
                     </button>
                 </form>

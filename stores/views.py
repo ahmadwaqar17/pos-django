@@ -117,12 +117,13 @@ def platform_dashboard(request):
     ).order_by("-created_at")
 
     stores = []
-    for s in stores_qs:
+    for i, s in enumerate(stores_qs):
         txn_count = transaction.all_objects.filter(store=s).count()
         stores.append({
             "store": s,
             "user_count": s.user_count,
             "txn_count": txn_count,
+            "avatar_class": f"av-{i % 4}",   # rotating avatar gradient
             "memberships": s.memberships.select_related("user").order_by("role"),
         })
 
