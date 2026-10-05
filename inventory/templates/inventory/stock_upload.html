@@ -1,0 +1,59 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Upload stock | {{ site_title }}{% endblock %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{{ changelist_url }}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; Upload stock
+  </div>
+{% endblock %}
+
+{% block content %}
+  <h1>Upload stock from Excel (.xlsx)</h1>
+
+  <div id="content-main">
+    <form method="post" enctype="multipart/form-data"
+          style="max-width: 640px; margin-top: 12px;">
+      {% csrf_token %}
+      <fieldset class="module aligned">
+        {% if form.non_field_errors %}
+          <ul class="errorlist">{{ form.non_field_errors }}</ul>
+        {% endif %}
+        <div class="form-row{% if form.stock_file.errors %} errors{% endif %}">
+          {% if form.stock_file.errors %}
+            <ul class="errorlist">{{ form.stock_file.errors }}</ul>
+          {% endif %}
+          {{ form.stock_file.label_tag }}
+          {{ form.stock_file }}
+          {% if form.stock_file.help_text %}
+            <p class="help">{{ form.stock_file.help_text|safe }}</p>
+          {% endif %}
+        </div>
+      </fieldset>
+
+      <div class="submit-row" style="border: none;">
+        <input type="submit" value="Import stock" class="default" name="_import">
+        <a href="{{ changelist_url }}" class="button cancel-link">Cancel</a>
+      </div>
+    </form>
+
+    <div style="max-width: 640px; margin-top: 20px;">
+      <h2 style="margin-bottom: 6px;">How the import works</h2>
+      <ul style="margin-left: 18px; line-height: 1.6;">
+        <li>Each <strong>Barcode</strong> becomes one product (the POS scans barcodes).</li>
+        <li>The product name is built as <strong>Code — Size</strong> (e.g. ME1001 — Small).</li>
+        <li>Every product goes to the <strong>Clothing</strong> department with
+            <strong>Zero Tax</strong> / <strong>No Deposit</strong> placeholders.</li>
+        <li><strong>Prices start at 0.00</strong> — set them per product afterwards.</li>
+        <li>If a barcode already exists, the sheet quantity is
+            <strong>added</strong> to the current stock.</li>
+        <li><strong>All-or-nothing:</strong> if any row is invalid (missing barcode,
+            non-numeric quantity), nothing is saved and every problem is listed.</li>
+      </ul>
+    </div>
+  </div>
+{% endblock %}

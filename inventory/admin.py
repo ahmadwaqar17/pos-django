@@ -1,8 +1,13 @@
-from django.contrib import admin
-from .models import product, department, tax, deposit
-from django.urls import reverse
+from django import forms
+from django.contrib import admin, messages
+from django.http import HttpResponseForbidden
+from django.shortcuts import redirect, render
+from django.urls import path, reverse
 from django.utils.http import urlencode
 from django.utils.html import format_html
+
+from .models import product, department, tax, deposit
+from .stock_import import ImportCancelled, import_stock
 
 # django-import-export pulls in tablib[ods] -> odfpy, which ships no binary
 # wheel and cannot install on build-locked hosts (e.g. Vercel). Fall back to
@@ -28,14 +33,71 @@ if HAS_IMPORT_EXPORT:
             export_order = fields
 
 
+class StockUploadForm(forms.Form):
+    """One-file upload form for the admin stock import (.xlsx)."""
+
+    stock_file = forms.FileField(
+        label="Stock file (.xlsx)",
+        help_text=(
+            "Excel sheet with columns: Sr. No., Code, Barcode, Size, Quantity. "
+            "New barcodes are created; existing barcodes get the quantity "
+            "ADDED to current stock. If any row is invalid, nothing is saved."
+        ),
+    )
+
+
 @admin.register(product)
 class ProductAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else admin.ModelAdmin):
     editable_list = ["sales_price",'qty']
     list_display = ("barcode","name","sales_price","qty","department","tax_category","deposit_category")
     list_filter = ("department","tax_category", "deposit_category",)
+    change_list_template = "inventory/product_changelist.html"
 
     # def has_import_permission(self,request):
     #     return False
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "stock-upload/",
+                self.admin_site.admin_view(self.stock_upload_view),
+                name="inventory_product_stock_upload",
+            ),
+        ]
+        return custom + urls
+
+    def stock_upload_view(self, request):
+        """Upload an .xlsx stock file and import it (all-or-nothing)."""
+        if not self.has_add_permission(request):
+            return HttpResponseForbidden("You do not have permission to add stock.")
+
+        context = dict(self.admin_site.each_context(request))
+        context.update({
+            "title": "Upload stock from Excel (.xlsx)",
+            "opts": self.model._meta,
+            "changelist_url": reverse("admin:inventory_product_changelist"),
+        })
+
+        if request.method == "POST":
+            form = StockUploadForm(request.POST, request.FILES)
+            if form.is_valid():
+                try:
+                    created, updated = import_stock(form.cleaned_data["stock_file"])
+                except ImportCancelled as exc:
+                    form.add_error("stock_file", str(exc))
+                else:
+                    messages.success(
+                        request,
+                        f"Stock import complete: {created} products created, "
+                        f"{updated} existing products topped up.",
+                    )
+                    return redirect("admin:inventory_product_changelist")
+        else:
+            form = StockUploadForm()
+
+        context["form"] = form
+        return render(request, "inventory/stock_upload.html", context)
 
 
 if HAS_IMPORT_EXPORT:
