@@ -13,8 +13,10 @@ Import contract (confirmed with the product owner):
   * product name   -> "Code — Size" (the sheet has no name column)
   * department     -> Clothing (created on first import)
   * tax/deposit    -> Zero Tax / No Deposit placeholder categories
-  * prices         -> 0.00 placeholders; set per product later in admin
-  * re-upload      -> quantities are ADDED to existing stock (never replaced)
+  * prices         -> optional Sales Price / Cost Price columns; products
+                      without them get 0.00 placeholders to set later
+  * re-upload      -> quantities are ADDED to existing stock; sheet prices
+                      overwrite product prices only where a value is present
   * invalid row    -> the WHOLE import is aborted (all-or-nothing)
 """
 import re
@@ -37,11 +39,33 @@ HEADER_ALIASES = {
     "size": "size",
     "quantity": "quantity",
     "qty": "quantity",
+    "sales price": "sales_price",
+    "sale price": "sales_price",
+    "price": "sales_price",
+    "cost price": "cost_price",
+    "cost": "cost_price",
 }
 
 
 class ImportCancelled(Exception):
     """Raised when a row is invalid; aborts the entire import."""
+
+
+def _parse_money(raw):
+    """Parse an optional money cell. Empty means 'not provided'.
+
+    Returns (Decimal, None) on success or (None, error_message).
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return None, None
+    try:
+        value = Decimal(raw)
+    except InvalidOperation:
+        return None, f"'{raw}' is not a number"
+    if value < 0:
+        return None, f"must be 0 or more, got '{raw}'"
+    return value, None
 
 
 def parse_xlsx_rows(file_obj):
@@ -133,7 +157,6 @@ def import_stock(file_obj):
 
     # ---- validate everything BEFORE touching the database --------------
     cleaned = []
-    seen_barcodes = {}
     errors = []
     for idx, row in enumerate(rows, start=2):  # Excel row 1 = header
         barcode = row.get("barcode", "")
@@ -153,16 +176,26 @@ def import_stock(file_obj):
         except (InvalidOperation, ValueError):
             problems.append(f"Quantity '{qty_raw}' is not a number")
 
+        sales_price, sales_err = _parse_money(row.get("sales_price", ""))
+        if sales_err:
+            problems.append(f"Sales Price {sales_err}")
+        cost_price, cost_err = _parse_money(row.get("cost_price", ""))
+        if cost_err:
+            problems.append(f"Cost Price {cost_err}")
+
         if problems:
             label = barcode or code or f"row {idx}"
             errors.append(f"Excel row {idx} ({label}): " + "; ".join(problems))
             continue
 
-        # Sum duplicate barcodes within the same file.
-        seen_barcodes[barcode] = seen_barcodes.get(barcode, 0) + qty
-
         name = f"{code} — {size}" if size else code
-        cleaned.append({"barcode": barcode, "name": name, "qty": qty})
+        cleaned.append({
+            "barcode": barcode,
+            "name": name,
+            "qty": qty,
+            "sales_price": sales_price,
+            "cost_price": cost_price,
+        })
 
     if errors:
         raise ImportCancelled(
@@ -192,24 +225,33 @@ def import_stock(file_obj):
 
         created = updated = 0
         for item in cleaned:
+            defaults = {
+                "name": item["name"],
+                "department": clothing,
+                "tax_category": zero_tax,
+                "deposit_category": no_deposit,
+                "qty": item["qty"],
+                "sales_price": (item["sales_price"]
+                                if item["sales_price"] is not None
+                                else Decimal("0.00")),
+                "cost_price": (item["cost_price"]
+                               if item["cost_price"] is not None
+                               else Decimal("0.00")),
+            }
             obj, was_created = product.objects.get_or_create(
-                barcode=item["barcode"],
-                defaults={
-                    "name": item["name"],
-                    "department": clothing,
-                    "tax_category": zero_tax,
-                    "deposit_category": no_deposit,
-                    "sales_price": Decimal("0.00"),
-                    "cost_price": Decimal("0.00"),
-                    "qty": item["qty"],
-                },
+                barcode=item["barcode"], defaults=defaults,
             )
             if was_created:
                 created += 1
             else:
-                # "Add stock": top up existing quantity, leave everything
-                # else (prices, name, department) untouched.
-                product.objects.filter(pk=obj.pk).update(qty=obj.qty + item["qty"])
+                # "Add stock": top up quantity. Prices are only touched when
+                # the sheet provides them (empty cell = leave as-is).
+                updates = {"qty": obj.qty + item["qty"]}
+                if item["sales_price"] is not None:
+                    updates["sales_price"] = item["sales_price"]
+                if item["cost_price"] is not None:
+                    updates["cost_price"] = item["cost_price"]
+                product.objects.filter(pk=obj.pk).update(**updates)
                 updated += 1
 
     return created, updated

@@ -39,9 +39,11 @@ class StockUploadForm(forms.Form):
     stock_file = forms.FileField(
         label="Stock file (.xlsx)",
         help_text=(
-            "Excel sheet with columns: Sr. No., Code, Barcode, Size, Quantity. "
-            "New barcodes are created; existing barcodes get the quantity "
-            "ADDED to current stock. If any row is invalid, nothing is saved."
+            "Excel sheet with columns: Sr. No., Code, Barcode, Size, Quantity, "
+            "plus optional Sales Price and Cost Price. New barcodes are "
+            "created; existing barcodes get the quantity ADDED to current "
+            "stock and prices updated only where the sheet provides a value. "
+            "If any row is invalid, nothing is saved."
         ),
     )
 

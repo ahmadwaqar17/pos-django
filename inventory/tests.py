@@ -15,7 +15,8 @@ STOCK_UPLOAD_URL_NAME = "admin:inventory_product_stock_upload"
 
 SS_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
-HEADER = ["Sr. No.", "Code", "Barcode", "Size", "Quantity"]
+HEADER = ["Sr. No.", "Code", "Barcode", "Size", "Quantity",
+          "Sales Price", "Cost Price"]
 
 
 def make_xlsx(rows):
@@ -100,7 +101,45 @@ class StockImportTests(TestCase):
         self.assertEqual(tax.objects.count(), 1)
         self.assertEqual(deposit.objects.count(), 1)
 
-    def test_reupload_adds_quantity_instead_of_duplicating(self):
+    def test_prices_default_to_zero_when_columns_absent(self):
+        self.client.post(self.url, {"stock_file": stock_file(self._rows())})
+        p = product.objects.get(barcode="ME1001-OOS")
+        self.assertEqual(p.sales_price, Decimal("0.00"))
+        self.assertEqual(p.cost_price, Decimal("0.00"))
+
+    def test_prices_imported_when_columns_present(self):
+        rows = [
+            ["1", "ME1001", "ME1001-OOS", "Small", "3", "1499.00", "900"],
+            ["2", "ME1002", "ME1002-OOS", "Small", "4", "", ""],
+        ]
+        self.client.post(self.url, {"stock_file": stock_file(rows)})
+        p = product.objects.get(barcode="ME1001-OOS")
+        self.assertEqual(p.sales_price, Decimal("1499.00"))
+        self.assertEqual(p.cost_price, Decimal("900.00"))
+        # Empty price cells leave those products at the 0.00 placeholder.
+        p2 = product.objects.get(barcode="ME1002-OOS")
+        self.assertEqual(p2.sales_price, Decimal("0.00"))
+
+    def test_reupload_with_prices_updates_prices_and_adds_qty(self):
+        self.client.post(self.url, {"stock_file": stock_file(self._rows())})
+        rows = [["1", "ME1001", "ME1001-OOS", "Small", "2", "1999.50", "1200"]]
+        self.client.post(self.url, {"stock_file": stock_file(rows)})
+        p = product.objects.get(barcode="ME1001-OOS")
+        self.assertEqual(p.qty, 5)                      # 3 + 2
+        self.assertEqual(p.sales_price, Decimal("1999.50"))
+        self.assertEqual(p.cost_price, Decimal("1200.00"))
+        # Re-upload without price columns keeps the new prices.
+        rows2 = [["1", "ME1001", "ME1001-OOS", "Small", "1"]]
+        self.client.post(self.url, {"stock_file": stock_file(rows2)})
+        p = product.objects.get(barcode="ME1001-OOS")
+        self.assertEqual(p.qty, 6)
+        self.assertEqual(p.sales_price, Decimal("1999.50"))
+
+    def test_non_numeric_price_aborts_everything(self):
+        rows = [["1", "ME1001", "ME1001-OOS", "Small", "3", "expensive", ""]]
+        resp = self.client.post(self.url, {"stock_file": stock_file(rows)})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(product.objects.count(), 0)
         self.client.post(self.url, {"stock_file": stock_file(self._rows())})
         self.client.post(self.url, {"stock_file": stock_file(self._rows())})
 

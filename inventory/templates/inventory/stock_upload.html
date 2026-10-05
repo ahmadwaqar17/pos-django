@@ -48,11 +48,13 @@
         <li>The product name is built as <strong>Code — Size</strong> (e.g. ME1001 — Small).</li>
         <li>Every product goes to the <strong>Clothing</strong> department with
             <strong>Zero Tax</strong> / <strong>No Deposit</strong> placeholders.</li>
-        <li><strong>Prices start at 0.00</strong> — set them per product afterwards.</li>
+        <li><strong>Sales Price / Cost Price</strong> columns are optional — include them
+            to set prices during import; products without them start at 0.00.</li>
         <li>If a barcode already exists, the sheet quantity is
-            <strong>added</strong> to the current stock.</li>
+            <strong>added</strong> to the current stock, and prices are updated
+            <strong>only where the sheet provides a value</strong>.</li>
         <li><strong>All-or-nothing:</strong> if any row is invalid (missing barcode,
-            non-numeric quantity), nothing is saved and every problem is listed.</li>
+            non-numeric quantity or price), nothing is saved and every problem is listed.</li>
       </ul>
     </div>
   </div>
