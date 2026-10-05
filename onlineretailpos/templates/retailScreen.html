@@ -53,10 +53,17 @@ Register | Online Retail POS
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">
-                                <strong>Sub Total : </strong>{{ total|sub:tax_total|floatformat:2 }}
+                                <strong>Sub Total : </strong>{{ gross_total|sub:tax_total|floatformat:2 }}
                             </div>
                             <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">
                                 <strong>Tax Total : </strong>{{ tax_total|floatformat:2 }}</div>
+                            {% if discount_percent > 0 %}
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                <strong>Discount ({{ discount_percent|floatformat:"-2" }}%) : </strong>-{{ discount_amount|floatformat:2 }}
+                                <a href="/register/discount/0/" class="badge badge-light border ml-1"
+                                   onclick="return confirm('Remove discount?')" style="font-size:.6rem;">&times; remove</a>
+                            </div>
+                            {% endif %}
                             <div class="text-xl font-weight-bold text-success text-uppercase mb-1">
                                 <strong>Total : </strong></div>
                             <div class="h3 mb-0 font-weight-bold text-gray-800" style="text-align:right;" >{{ total|floatformat:2 }}</div>
@@ -113,6 +120,7 @@ Register | Online Retail POS
     <div class="col-lg-6">
         <hr>
         <div class="btn-block" style="padding-top: 10px;text-align:center">
+            <button id="disable_0" data-toggle="modal" data-target="#discountModal" class="btn btn-secondary" style="width:23%;margin:2px;height:60px;margin-bottom:5px" > Apply<br>Discount % </button>
             <button id="disable_1" onclick="return window.open('/register/returns_transaction/',target='_self')" class="btn btn-warning" style="width:23%;margin:2px;height:60px;margin-bottom:5px" > (-)<br>Returns </button>
             <button id="disable_2" onclick="return window.open('/register/suspend_transaction/',target='_self')" class="btn btn-info" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Suspend<br>Transaction </button>
             <button onclick="return window.open('/register/recall_transaction/',target='_self')" class="btn btn-info" style="width:23%;margin:2px;height:60px;margin-bottom:5px"> Recall<br>Transaction </button>
@@ -327,6 +335,37 @@ Register | Online Retail POS
 </script>
 {% endif %}
 
+<div class="modal fade" id="discountModal" tabindex="-1" role="dialog" aria-labelledby="discountModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header bg-secondary text-white py-2 px-3">
+                <h5 class="modal-title font-weight-bold h6 mb-0" id="discountModalLabel">
+                    <i class="fas fa-percent mr-1"></i> Apply Discount
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="discountForm" onsubmit="return applyDiscount(this)">
+                <div class="modal-body py-3">
+                    <label for="discount_percent_input" class="font-weight-bold mb-1">Discount percentage (0 &ndash; 100)</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control form-control-lg" id="discount_percent_input"
+                               name="percent" min="0" max="100" step="0.01" placeholder="e.g. 10"
+                               value="{{ discount_percent|floatformat:'-2' }}" required autocomplete="off">
+                        <div class="input-group-append"><span class="input-group-text">%</span></div>
+                    </div>
+                    <small class="text-muted">Applied to the whole cart total. Enter 0 to remove.</small>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Apply</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     // Product data serialized for client-side search autocomplete
     var productsCatalog = [
@@ -515,6 +554,17 @@ Register | Online Retail POS
 
     function closeForm(){
         document.getElementById("popupForm").style.display = "none";
+    }
+
+    function applyDiscount(form){
+        var pct = parseFloat(form.percent.value);
+        if (isNaN(pct) || pct < 0 || pct > 100){
+            alert("Enter a discount between 0 and 100.");
+            return false;
+        }
+        $('#discountModal').modal('hide');
+        window.open('/register/discount/' + pct + '/', target="_self");
+        return false;
     }
 
     function variableAmount(barcode,name,info){

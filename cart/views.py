@@ -53,5 +53,8 @@ def item_decrement(request, id):
 def cart_clear(request):
     cart = Cart(request)
     cart.clear()
+    # A manual discount belongs to the cleared transaction.
+    request.session["Discount_Percent"] = 0
+    request.session.modified = True
     return redirect('register')
 

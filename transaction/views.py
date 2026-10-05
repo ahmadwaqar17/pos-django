@@ -158,24 +158,49 @@ def endTransactionReceipt(request,transNo):
 
 
 @login_required(login_url="/user/login/")
+def setDiscount(request, percent):
+    """Set (or clear, with 0) a manual whole-cart discount percentage."""
+    try:
+        percent = round(float(percent), 2)
+    except (TypeError, ValueError):
+        percent = 0
+    if percent < 0 or percent > 100:
+        percent = 0
+    request.session["Discount_Percent"] = percent
+    request.session.modified = True
+    return redirect("register")
+
+
+@login_required(login_url="/user/login/")
 def endTransaction(request,type,value):
     try:
         # Card Transactions
         cart = request.session[settings.CART_SESSION_ID]
-        total = round(pd.DataFrame(cart).T["line_total"].astype(float).sum(),2)
+        gross_total = round(pd.DataFrame(cart).T["line_total"].astype(float).sum(),2)
+        discount_percent = float(request.session.get("Discount_Percent", 0) or 0)
+        discount_amount = round(gross_total * discount_percent / 100, 2)
+        total = round(gross_total - discount_amount, 2)
         if type == "card": # Card Transaction
             # EBT Transaction
             if value=="EBT": 
-                return_transaction = addTransaction(request.user,"EBT",total,cart,total)
+                return_transaction = addTransaction(request.user,"EBT",total,cart,total,
+                    discount_percent=discount_percent, discount_amount=discount_amount,
+                    gross_total=gross_total)
             # DEBIT/CREDIT Transaction
             elif value=="DEBIT_CREDIT": 
-                return_transaction = addTransaction(request.user,"DEBIT/CREDIT",total,cart,total)
+                return_transaction = addTransaction(request.user,"DEBIT/CREDIT",total,cart,total,
+                    discount_percent=discount_percent, discount_amount=discount_amount,
+                    gross_total=gross_total)
         elif type=="cash": # Cash Transaction
             value = round(float(value),2)
             if value>= total: 
-                return_transaction = addTransaction(request.user,"CASH",total,cart,value)
+                return_transaction = addTransaction(request.user,"CASH",total,cart,value,
+                    discount_percent=discount_percent, discount_amount=discount_amount,
+                    gross_total=gross_total)
         if return_transaction:
             Cart(request).clear()
+            request.session["Discount_Percent"] = 0
+            request.session.modified = True
             return redirect(f"/endTransaction/{return_transaction.transaction_id}/?type={type}&value={value}&total={total}")
         return redirect("register")
     except Exception as e:
@@ -183,13 +208,17 @@ def endTransaction(request,type,value):
         return redirect("register")
 
 
-def addTransaction(user,payment_type,total,cart,value):
+def addTransaction(user,payment_type,total,cart,value,discount_percent=0,discount_amount=0.0,gross_total=None):
     transaction_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
     short_id = transaction_id[:14]
     cart_df = pd.DataFrame(cart).T.reset_index(drop=True)
     cart_df.index = cart_df.index + 1
     tax_total = round(cart_df["tax_value"].astype(float).sum(),2)
     deposit_total = round(cart_df["deposit_value"].astype(float).sum(),2)
+    discount_percent = round(float(discount_percent or 0), 2)
+    discount_amount = round(float(discount_amount or 0), 2)
+    if gross_total is None:
+        gross_total = round(total + discount_amount, 2)
     receipt_date = datetime.now().strftime('%d %b %Y  %I:%M %p')
     w = settings.RECEIPT_CHAR_COUNT
 
@@ -216,11 +245,13 @@ def addTransaction(user,payment_type,total,cart,value):
     receipt += f" {'-'*w}\n"
     receipt += cart_string + "\n"
     receipt += f" {'-'*w}\n"
-    receipt += f" {'Subtotal:':<15}PKR {round(total-tax_total,2):>8.2f}\n"
+    receipt += f" {'Subtotal:':<15}PKR {round(gross_total-tax_total,2):>8.2f}\n"
     if tax_total > 0:
         receipt += f" {'Tax:':<15}PKR {tax_total:>8.2f}\n"
     if deposit_total > 0:
         receipt += f" {'Deposit:':<15}PKR {deposit_total:>8.2f}\n"
+    if discount_percent > 0:
+        receipt += f" {f'Discount {discount_percent:g}%:':<15}PKR {round(discount_amount,2):>8.2f}\n"
     receipt += f" {'='*w}\n"
     receipt += f" {'TOTAL:':<15}PKR {round(total,2):>8.2f}\n"
     receipt += f" {'-'*w}\n"
@@ -239,6 +270,8 @@ def addTransaction(user,payment_type,total,cart,value):
 
     #Saving Transaction into Database
     return transaction.objects.create( transaction_id = transaction_id , transaction_dt = datetime.strptime(transaction_id[:-6],'%Y%m%d%H%M%S'),
-            user = user, total_sale= total, sub_total = round(total-tax_total,2),tax_total=tax_total, deposit_total = deposit_total,
+            user = user, total_sale= total, sub_total = round(gross_total-tax_total,2),tax_total=tax_total, deposit_total = deposit_total,
+            discount_percent = discount_percent if discount_percent > 0 else None,
+            discount_amount = discount_amount if discount_percent > 0 else None,
             payment_type = payment_type, receipt = receipt, products = str(cart_df.to_dict('records')),
         )

@@ -57,6 +57,7 @@ urlpatterns = [
         path('register/suspend_transaction/', transaction_views.suspendTransaction, name='suspend_transaction'),
         path('register/recall_transaction/', transaction_views.recallTransaction, name='recall_transaction'),
         path('register/recall_transaction/<recallTransNo>/', transaction_views.recallTransaction, name='recall_transaction_no'),
+        path('register/discount/<percent>/', transaction_views.setDiscount, name='set_discount'),
         path('register/product_lookup/', inventory_views.product_lookup, name='product_lookup_default'),
         path('register/<manual_department>/<amount>/', inventory_views.manualAmount, name='manual_amount'),
 

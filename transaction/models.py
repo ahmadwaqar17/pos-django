@@ -18,6 +18,8 @@ class transaction(models.Model):
     tax_total       = models.DecimalField(max_digits=7,decimal_places=2,null=True,editable=False)
     deposit_total   = models.DecimalField(max_digits=7,decimal_places=2,null=True,editable=False)
     payment_type    = models.CharField(choices=[('CASH','CASH'),('DEBIT/CREDIT','DEBIT/CREDIT'),('EBT','EBT')],max_length=32, null=False,editable=False)
+    discount_percent = models.DecimalField(max_digits=5,decimal_places=2,null=True,blank=True,editable=False,default=None)
+    discount_amount = models.DecimalField(max_digits=7,decimal_places=2,null=True,blank=True,editable=False,default=None)
     receipt         = models.TextField(blank=False,null=False,editable=False)
     products        = models.TextField(blank=False,null=False,editable=False)
 

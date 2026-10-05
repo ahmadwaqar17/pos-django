@@ -33,13 +33,16 @@ def register(request):
             return redirect(f"/cart/add/{form.cleaned_data['barcode']}/{form.cleaned_data['qty']}")
     try:
         cart = request.session[settings.CART_SESSION_ID]
-        Total = round(pd.DataFrame(cart).T["line_total"].astype(float).sum(),2)
+        gross_total = round(pd.DataFrame(cart).T["line_total"].astype(float).sum(),2)
         Tax_Total = round(pd.DataFrame(cart).T["tax_value"].astype(float).sum(),2)
     except KeyError:
         cart = Cart(request)
-        Total = 0
+        gross_total = 0
         Tax_Total = 0
-    
+    discount_percent = float(request.session.get("Discount_Percent", 0) or 0)
+    discount_amount = round(gross_total * discount_percent / 100, 2)
+    Total = round(gross_total - discount_amount, 2)
+
     all_products = product.objects.select_related('department').all()
     departments = department.objects.all()
 
@@ -48,6 +51,9 @@ def register(request):
         'no_product':  True if "ProductNotFound" in request.path else False,
         'cart':cart,
         'total':Total,
+        'gross_total':gross_total,
+        'discount_percent':discount_percent,
+        'discount_amount':discount_amount,
         'tax_total':Tax_Total,
         'displayed_items':displayed_items.objects.all(),
         'all_products': all_products,
