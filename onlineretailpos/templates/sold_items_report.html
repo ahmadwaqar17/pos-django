@@ -59,7 +59,6 @@
                     <th style="text-align:right">Deposit</th>
                     <th>Payment</th>
                     <th>Cashier</th>
-                    <th>Store</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -72,12 +71,11 @@
                     <td>{{ r.department|default:"—" }}</td>
                     <td style="text-align:right">{{ r.qty }}</td>
                     <td style="text-align:right">{{ r.sales_price|floatformat:2 }}</td>
-                    <td style="text-align:right font-weight-bold text-dark">{{ r.sales_price|mul:r.qty|floatformat:2 }}</td>
+                    <td class="font-weight-bold text-dark" style="text-align:right">{{ r.line_total|floatformat:2 }}</td>
                     <td style="text-align:right">{{ r.tax_amount|default:0|floatformat:2 }}</td>
                     <td style="text-align:right">{{ r.deposit_amount|default:0|floatformat:2 }}</td>
                     <td><span class="badge badge-light border">{{ r.payment_type }}</span></td>
-                    <td>{{ users|r.transaction__user_id|default:"—" }}</td>
-                    <td>{{ r.transaction__store_id|default:"—" }}</td>
+                    <td>{{ r.cashier|default:"—" }}</td>
                 </tr>
                 {% endfor %}
                 </tbody>
