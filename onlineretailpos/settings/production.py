@@ -78,10 +78,10 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 # Store Information (same env contract as devlopement settings)
 # For Line Break add \n; can not be more than (RECEIPT_CHAR_COUNT - 2) chars per line
 RECEIPT_CHAR_COUNT = int(os.getenv('RECEIPT_CHAR_COUNT', 32))
-STORE_NAME = os.getenv('STORE_NAME', "STORE NAME")
-STORE_ADDRESS = os.getenv('STORE_ADDRESS', "STORE ADDRESS")
+STORE_NAME = os.getenv('STORE_NAME', "Stitch the Pret")
+STORE_ADDRESS = os.getenv('STORE_ADDRESS', "")
 STORE_PHONE = os.getenv('STORE_PHONE', "")
-RECEIPT_HEAD = f"{STORE_NAME}\n{STORE_ADDRESS}"
+RECEIPT_HEAD = f"{STORE_NAME}\n{STORE_ADDRESS}" if STORE_ADDRESS else STORE_NAME
 RECEIPT_HEAD = RECEIPT_HEAD + f"\n{STORE_PHONE}" if os.getenv('Include_Phone_In_Heading', "False").lower() == "true" else RECEIPT_HEAD
 RECEIPT_ADDITIONAL_HEADING = os.getenv('RECEIPT_ADDITIONAL_HEADING', "")
 RECEIPT_HEADER = f"{RECEIPT_HEAD}\n{RECEIPT_ADDITIONAL_HEADING}" if RECEIPT_ADDITIONAL_HEADING != "" else RECEIPT_HEAD

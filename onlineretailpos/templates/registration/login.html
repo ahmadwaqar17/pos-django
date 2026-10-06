@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="robots" content="noindex,nofollow" />
-    <title>Sign in | Online Retail POS</title>
+    <title>Sign in | {{ brand_name }}</title>
     <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
@@ -121,7 +121,7 @@
         <div class="logo-row">
             <div class="logo"><i class="fas fa-store"></i></div>
             <div>
-                <div class="name">{{ store_name|default:"Online Retail POS" }}</div>
+                <div class="name">{{ store_name|default:brand_name }}</div>
                 <div class="sub">Point of Sale</div>
             </div>
         </div>
@@ -136,7 +136,7 @@
             </ul>
         </div>
 
-        <div class="foot">&copy; {% now "Y" %} Online Retail POS</div>
+        <div class="foot">&copy; {% now "Y" %} {{ brand_name }}</div>
     </section>
 
     <section class="panel">

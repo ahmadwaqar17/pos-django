@@ -421,7 +421,8 @@ def addTransaction(user,payment_type,total,cart,value,discount_percent=0,discoun
 
     receipt = f"{'='*w}\n"
     receipt += f"{settings.STORE_NAME.center(w)}\n"
-    receipt += f"{settings.STORE_ADDRESS.center(w)}\n"
+    if settings.STORE_ADDRESS:
+        receipt += f"{settings.STORE_ADDRESS.center(w)}\n"
     if settings.STORE_PHONE:
         receipt += f"{'Ph: '+str(settings.STORE_PHONE).center(w-4)}\n"
     receipt += f"{'='*w}\n"

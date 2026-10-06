@@ -9,7 +9,7 @@
     
     <meta name="robots" content="noindex,nofollow" />
 
-    <title>{% block title %}Online Retail POS{% endblock %} </title>
+    <title>{% block title %}{{ brand_name }}{% endblock %} </title>
 
     <!-- Custom fonts for this template-->
     <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
@@ -208,7 +208,7 @@
         </style>
         <ul class="navbar-nav sidebar sidebar-dark accordion toggled pos-sidebar" id="accordionSidebar">
             <!-- Sidebar - Brand -->
-            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url 'home' %}" title="Online Retail POS">
+            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url 'home' %}" title="{{ brand_name }}">
                 <div class="pos-brand-icon"><i class="fas fa-store"></i></div>
             </a>
 

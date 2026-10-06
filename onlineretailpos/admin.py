@@ -6,7 +6,7 @@ from django.conf import settings
 
 class MyAdminSite(admin.AdminSite):
     site_header = f"{settings.STORE_NAME} - Data Portal"
-    site_title = "Online Retail POS"
+    site_title = settings.STORE_NAME
     index_title = "Data Administration"
 
 

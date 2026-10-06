@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}
-    Transaction Receipt | Online Retail POS
+    Transaction Receipt | {{ brand_name }}
 {% endblock %}
 
 {% block nav-item %}  Receipt - {{transNo}}  {% endblock %}
@@ -16,7 +16,7 @@
 
             <div class="text-center pb-2">
                 <div class="h4 mb-0 font-weight-bold" style="text-transform:uppercase;">{{ store_name }}</div>
-                <div class="small text-muted">{{ store_address }}</div>
+                {% if store_address %}<div class="small text-muted">{{ store_address }}</div>{% endif %}
                 {% if store_phone %}<div class="small text-muted">Ph: {{ store_phone }}</div>{% endif %}
             </div>
 
