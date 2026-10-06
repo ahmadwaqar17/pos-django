@@ -1,12 +1,12 @@
 {% extends "admin/change_list.html" %}
 
-{# Adds the "Upload stock (.xlsx)" button next to the standard "Add product" #}
-{# button on the product changelist. block.super keeps the default items.  #}
+{# Adds an "Upload stock (.xlsx)" button next to the standard "Add product" #}
+{# button. Jazzmin floats both right, so block.super comes first.          #}
 {% block object-tools-items %}
-  <li>
-    <a href="{% url 'admin:inventory_product_stock_upload' %}" class="addlink">
-      Upload stock (.xlsx)
-    </a>
-  </li>
   {{ block.super }}
+  {% if has_add_permission %}
+  <a href="{% url 'admin:inventory_product_stock_upload' %}" class="btn btn-outline-primary float-right mr-2">
+    <i class="fas fa-file-upload"></i> &nbsp;Upload stock (.xlsx)
+  </a>
+  {% endif %}
 {% endblock %}

@@ -28,7 +28,7 @@ CART_SESSION_ID = 'cart'
 import importlib
 
 INSTALLED_APPS = [
-    # "admin_interface", #Interface if Admin Port Customization is needed
+    "jazzmin",  # admin theme; must come before the admin app
     "colorfield",
     'onlineretailpos.admin.MyAdminConfig',#'django.contrib.admin',
     'django.contrib.auth',
@@ -146,3 +146,89 @@ STATICFILES_DIRS = (
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+# ---------------------------------------------------------------------------
+# Admin theme (django-jazzmin). STORE_NAME is defined in the environment-
+# specific settings module, so read the env var directly here.
+# ---------------------------------------------------------------------------
+_ADMIN_BRAND = os.getenv("STORE_NAME", "Stitch the Pret")
+
+LOW_STOCK_THRESHOLD = int(os.getenv("LOW_STOCK_THRESHOLD", 5))
+
+JAZZMIN_SETTINGS = {
+    "site_title": f"{_ADMIN_BRAND} Admin",
+    "site_header": _ADMIN_BRAND,
+    "site_brand": _ADMIN_BRAND,
+    "site_logo": "img/logo.svg",
+    "login_logo": "img/logo.svg",
+    "site_logo_classes": "",
+    "site_icon": "img/logo.svg",
+    "welcome_sign": f"Sign in to {_ADMIN_BRAND} Data Portal",
+    "copyright": _ADMIN_BRAND,
+    "search_model": ["inventory.product"],
+    "user_avatar": None,
+
+    "topmenu_links": [
+        {"name": "Dashboard", "url": "admin:index"},
+        {"name": "Open POS", "url": "register", "new_window": True},
+        {"model": "inventory.product"},
+    ],
+    "usermenu_links": [
+        {"name": "Open POS", "url": "register", "new_window": True, "icon": "fas fa-cash-register"},
+    ],
+
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "order_with_respect_to": [
+        "inventory", "inventory.product", "inventory.department", "inventory.tax", "inventory.deposit",
+        "transaction", "cart", "auth",
+    ],
+    "custom_links": {
+        "inventory": [{
+            "name": "Upload stock (.xlsx)",
+            "url": "admin:inventory_product_stock_upload",
+            "icon": "fas fa-file-upload",
+            "permissions": ["inventory.add_product"],
+        }],
+    },
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "inventory.product": "fas fa-tshirt",
+        "inventory.department": "fas fa-layer-group",
+        "inventory.tax": "fas fa-percent",
+        "inventory.deposit": "fas fa-coins",
+        "transaction.transaction": "fas fa-receipt",
+        "transaction.productTransaction": "fas fa-list-ul",
+        "cart.displayed_items": "fas fa-th-large",
+        "django_admin_logs.LogEntry": "fas fa-history",
+    },
+    "default_icon_parents": "fas fa-folder",
+    "default_icon_children": "fas fa-circle",
+    "related_modal_active": True,
+    "changeform_format": "single",
+    "show_ui_builder": False,
+    "custom_css": "css/admin_theme.css",
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "default",
+    "dark_mode_theme": "darkly",   # follows the OS dark-mode preference
+    "navbar": "navbar-white navbar-light",
+    "no_navbar_border": True,
+    "navbar_fixed": True,
+    "sidebar": "sidebar-dark-indigo",
+    "sidebar_fixed": True,
+    "sidebar_nav_flat_style": True,
+    "sidebar_nav_child_indent": True,
+    "brand_colour": "navbar-indigo",
+    "accent": "accent-indigo",
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-outline-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success",
+    },
+}

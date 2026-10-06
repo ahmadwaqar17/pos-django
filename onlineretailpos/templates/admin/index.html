@@ -1,0 +1,66 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{# Extends Jazzmin's dashboard: adds stock / sales figures and shortcuts above the default app list. #}
+
+{% block content %}
+{% if pos_stats %}
+<div class="row">
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+        <div class="card h-100"><div class="pos-stat">
+            <div class="icon" style="background:#eef0fd;color:#4e5ae8"><i class="fas fa-tshirt"></i></div>
+            <div><div class="label">Products</div><div class="value">{{ pos_stats.products }}</div></div>
+        </div></div>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+        <a href="{% url 'admin:inventory_product_changelist' %}?stock=low" class="text-reset text-decoration-none">
+        <div class="card h-100"><div class="pos-stat">
+            <div class="icon" style="background:#fff4e0;color:#d97706"><i class="fas fa-exclamation-triangle"></i></div>
+            <div><div class="label" title="{{ low_stock_threshold }} or fewer left">Low stock</div><div class="value">{{ pos_stats.low_stock }}</div></div>
+        </div></div></a>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+        <a href="{% url 'admin:inventory_product_changelist' %}?stock=out" class="text-reset text-decoration-none">
+        <div class="card h-100"><div class="pos-stat">
+            <div class="icon" style="background:#fde8eb;color:#e0475b"><i class="fas fa-box-open"></i></div>
+            <div><div class="label">Out of stock</div><div class="value">{{ pos_stats.out_of_stock }}</div></div>
+        </div></div></a>
+    </div>
+    <div class="col-xl-2 col-md-4 col-6 mb-3">
+        <a href="{% url 'admin:inventory_product_changelist' %}?cost=missing" class="text-reset text-decoration-none">
+        <div class="card h-100"><div class="pos-stat">
+            <div class="icon" style="background:#eaecf4;color:#5a5c69"><i class="fas fa-tag"></i></div>
+            <div><div class="label">No cost price</div><div class="value">{{ pos_stats.no_cost }}</div></div>
+        </div></div></a>
+    </div>
+    <div class="col-xl-4 col-md-8 mb-3">
+        <div class="card h-100"><div class="pos-stat">
+            <div class="icon" style="background:#e3f6ee;color:#12a46a"><i class="fas fa-coins"></i></div>
+            <div>
+                <div class="label">Today's sales</div>
+                <div class="value">Rs {{ pos_stats.today_sales|floatformat:"2g" }}
+                    <small class="text-muted" style="font-size:.85rem;font-weight:600">· {{ pos_stats.today_receipts }} receipt{{ pos_stats.today_receipts|pluralize }}</small>
+                </div>
+            </div>
+        </div></div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><h3 class="card-title font-weight-bold">Quick actions</h3></div>
+    <div class="card-body">
+        <div class="row">
+            {% if perms.inventory.add_product %}
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'admin:inventory_product_add' %}"><i class="fas fa-plus-circle"></i> Add product</a></div>
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'admin:inventory_product_stock_upload' %}"><i class="fas fa-file-upload"></i> Upload stock</a></div>
+            {% endif %}
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'admin:inventory_product_changelist' %}?stock=low"><i class="fas fa-exclamation-triangle"></i> Low-stock list</a></div>
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'admin:inventory_product_changelist' %}"><i class="fas fa-list"></i> All products</a></div>
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'admin:transaction_transaction_changelist' %}"><i class="fas fa-receipt"></i> Sales</a></div>
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'register' %}" target="_blank"><i class="fas fa-cash-register"></i> Open POS</a></div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

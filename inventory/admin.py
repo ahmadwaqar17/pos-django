@@ -1,4 +1,6 @@
 from django import forms
+from django.conf import settings
+from django.db.models import Case, ExpressionWrapper, F, FloatField, When
 from django.contrib import admin, messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
@@ -48,12 +50,85 @@ class StockUploadForm(forms.Form):
     )
 
 
+LOW_STOCK_THRESHOLD = getattr(settings, "LOW_STOCK_THRESHOLD", 5)
+
+
+class StockStatusFilter(admin.SimpleListFilter):
+    title = "stock status"
+    parameter_name = "stock"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("in", "In stock"),
+            ("low", f"Low stock (≤ {LOW_STOCK_THRESHOLD})"),
+            ("out", "Out of stock"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "in":
+            return queryset.filter(qty__gt=LOW_STOCK_THRESHOLD)
+        if self.value() == "low":
+            return queryset.filter(qty__gt=0, qty__lte=LOW_STOCK_THRESHOLD)
+        if self.value() == "out":
+            return queryset.filter(qty__lte=0)
+        return queryset
+
+
+class CostPriceFilter(admin.SimpleListFilter):
+    title = "cost price"
+    parameter_name = "cost"
+
+    def lookups(self, request, model_admin):
+        return (("missing", "No cost price"), ("set", "Has cost price"))
+
+    def queryset(self, request, queryset):
+        if self.value() == "missing":
+            return queryset.filter(cost_price__lte=0)
+        if self.value() == "set":
+            return queryset.filter(cost_price__gt=0)
+        return queryset
+
+
 @admin.register(product)
 class ProductAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else admin.ModelAdmin):
-    editable_list = ["sales_price",'qty']
-    list_display = ("barcode","name","sales_price","qty","department","tax_category","deposit_category")
-    list_filter = ("department","tax_category", "deposit_category",)
+    list_display = ("name", "barcode", "department", "sales_price", "cost_price", "margin",
+                    "qty", "stock_status", "tax_category", "deposit_category")
+    list_display_links = ("name",)
+    list_editable = ("sales_price", "cost_price", "qty")
+    list_filter = (StockStatusFilter, CostPriceFilter, "department", "tax_category", "deposit_category")
+    search_fields = ("barcode", "name", "department__department_name")
+    list_select_related = ("department", "tax_category", "deposit_category")
+    list_per_page = 100
+    ordering = ("name",)
     change_list_template = "inventory/product_changelist.html"
+
+    def get_queryset(self, request):
+        # Margin as a DB expression so the column can be sorted.
+        return super().get_queryset(request).annotate(
+            margin_pct=Case(
+                When(sales_price__gt=0, cost_price__gt=0, then=ExpressionWrapper(
+                    (F("sales_price") - F("cost_price")) * 100.0 / F("sales_price"),
+                    output_field=FloatField())),
+                default=None, output_field=FloatField()))
+
+    @admin.display(description="Margin", ordering="margin_pct")
+    def margin(self, obj):
+        if obj.margin_pct is None or not obj.cost_price:
+            return format_html('<span style="color:#9a9db8">—</span>')
+        color = "#e0475b" if obj.margin_pct < 0 else "#12a46a" if obj.margin_pct >= 20 else "#d97706"
+        return format_html('<span style="color:{};font-weight:700">{}%</span>', color, f"{obj.margin_pct:.1f}")
+
+    @admin.display(description="Stock", ordering="qty")
+    def stock_status(self, obj):
+        if obj.qty <= 0:
+            label, bg, fg = "Out", "#fde8eb", "#e0475b"
+        elif obj.qty <= LOW_STOCK_THRESHOLD:
+            label, bg, fg = "Low", "#fff4e0", "#d97706"
+        else:
+            label, bg, fg = "In stock", "#e3f6ee", "#12a46a"
+        return format_html(
+            '<span style="background:{};color:{};padding:2px 10px;border-radius:999px;'
+            'font-size:12px;font-weight:700;white-space:nowrap">{}</span>', bg, fg, label)
 
     # def has_import_permission(self,request):
     #     return False
