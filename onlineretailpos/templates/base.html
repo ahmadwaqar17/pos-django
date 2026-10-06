@@ -101,87 +101,150 @@
     <!-- Page Wrapper -->
     <div id="wrapper" >
         {% block sidebar %}
-        <!-- Sidebar -->
-        <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion toggled" id="accordionSidebar">
+        {% with url_name=request.resolver_match.url_name %}
+        <style>
+            #accordionSidebar.pos-sidebar {
+                background: linear-gradient(180deg, #2b2f6b 0%, #1e2150 100%);
+                width: 6.75rem !important;
+                padding: 0 .5rem 1rem;
+                box-shadow: 2px 0 12px rgba(20, 22, 60, .18);
+                min-height: 100vh;
+            }
+            .pos-sidebar .sidebar-brand { height: auto; padding: 1.1rem 0 .9rem; }
+            .pos-sidebar .pos-brand-icon {
+                width: 2.75rem; height: 2.75rem; border-radius: .9rem;
+                display: flex; align-items: center; justify-content: center;
+                background: linear-gradient(135deg, #6c7bff, #4e5ae8);
+                box-shadow: 0 6px 14px rgba(78, 90, 232, .45);
+                color: #fff; font-size: 1.15rem; transform: none !important;
+            }
+            .pos-sidebar .pos-section {
+                font-size: .6rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+                color: rgba(255, 255, 255, .35); text-align: center; margin: 1rem 0 .35rem;
+            }
+            .pos-sidebar .pos-section:after {
+                content: ""; display: block; width: 1.5rem; height: 2px; margin: .35rem auto 0;
+                border-radius: 2px; background: rgba(255, 255, 255, .12);
+            }
+            .pos-sidebar .nav-item { margin: 0; }
+            .pos-sidebar.toggled .nav-item .nav-link,
+            .pos-sidebar .nav-item .nav-link {
+                width: 100% !important; text-align: center; padding: .6rem .25rem !important;
+                margin: .15rem 0; border-radius: .75rem; color: rgba(255, 255, 255, .65) !important;
+                transition: background .15s, color .15s;
+                position: relative;
+            }
+            .pos-sidebar .nav-item .nav-link i {
+                display: block; margin: 0 auto .3rem !important; font-size: 1.05rem !important;
+                color: inherit !important;
+            }
+            .pos-sidebar .nav-item .nav-link span {
+                display: block; font-size: .68rem !important; font-weight: 600; line-height: 1.15;
+            }
+            .pos-sidebar .nav-item .nav-link:hover {
+                background: rgba(255, 255, 255, .08); color: #fff !important;
+            }
+            .pos-sidebar .nav-item .nav-link.is-active {
+                background: #fff; color: #3d46c9 !important;
+                box-shadow: 0 6px 16px rgba(0, 0, 0, .18);
+            }
+            .pos-sidebar .nav-item .nav-link .pos-ext {
+                position: absolute; top: .4rem; right: .45rem; font-size: .5rem !important;
+                margin: 0 !important; opacity: .5;
+            }
+            .pos-sidebar.toggled .nav-item .nav-link[data-toggle="collapse"]::after { display: none; }
+            .pos-sidebar .collapse-inner { box-shadow: 0 10px 30px rgba(0, 0, 0, .2); border-radius: .75rem !important; }
+            .pos-sidebar .collapse-item.is-active { background: #eaecf4; color: #3d46c9; font-weight: 700; }
+            .pos-sidebar .pos-user {
+                margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, .08);
+                text-align: center;
+            }
+            .pos-sidebar .pos-avatar {
+                width: 2.25rem; height: 2.25rem; border-radius: 50%; margin: 0 auto .35rem;
+                display: flex; align-items: center; justify-content: center;
+                background: rgba(255, 255, 255, .12); color: #fff; font-weight: 800; text-transform: uppercase;
+            }
+            .pos-sidebar .pos-logout {
+                display: inline-block; font-size: .65rem; font-weight: 600; color: rgba(255, 255, 255, .5);
+                padding: .2rem .5rem; border-radius: .5rem;
+            }
+            .pos-sidebar .pos-logout:hover { color: #ff8a8a; background: rgba(255, 255, 255, .06); text-decoration: none; }
+            @media print { #accordionSidebar { display: none !important; } }
+        </style>
+        <ul class="navbar-nav sidebar sidebar-dark accordion toggled pos-sidebar" id="accordionSidebar">
             <!-- Sidebar - Brand -->
-            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url 'home' %}" >
-                <div class="sidebar-brand-icon">
-                    <i class="fas fa-store"></i>
-                </div>
-                <div class="sidebar-brand-text">Online Retail POS System</div>
+            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url 'home' %}" title="Online Retail POS">
+                <div class="pos-brand-icon"><i class="fas fa-store"></i></div>
             </a>
-            <hr class="sidebar-divider my-0">
-            <!-- Divider -->
-            <li class="nav-item active" style="padding-top:20px;padding-bottom:20px">
-                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
-                        <i class="fas fa-fw fa-desktop"></i>
-                        <span>Dashboards</span>
+
+            <li class="nav-item">
+                <a class="nav-link collapsed {% if url_name == 'home' or url_name|slice:':10' == 'dashboard_' %}is-active{% endif %}"
+                   href="#" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
+                    <i class="fas fa-fw fa-chart-pie"></i>
+                    <span>Dashboards</span>
                 </a>
                 <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
-                        <!-- <h6 class="collapse-header">Dashboards</h6> -->
-                        <a class="collapse-item" href="{% url 'dashboard_sales' %}"><i class="fas fa-fw fa-chart-line"></i> Sales Dashboard</a>
-                        <a class="collapse-item" href="{% url 'dashboard_department' %}"><i class="fas fa-fw fa-chart-bar"></i> Department Dashboard</a>
-                        <a class="collapse-item" href="{% url 'dashboard_products' %}"><i class="fas fa-fw fa-table"></i> Products Dashboard</a>
+                        <h6 class="collapse-header">Dashboards</h6>
+                        <a class="collapse-item {% if url_name == 'dashboard_sales' or url_name == 'home' %}is-active{% endif %}" href="{% url 'dashboard_sales' %}"><i class="fas fa-fw fa-chart-line mr-1"></i> Sales</a>
+                        <a class="collapse-item {% if url_name == 'dashboard_department' %}is-active{% endif %}" href="{% url 'dashboard_department' %}"><i class="fas fa-fw fa-chart-bar mr-1"></i> Departments</a>
+                        <a class="collapse-item {% if url_name == 'dashboard_products' %}is-active{% endif %}" href="{% url 'dashboard_products' %}"><i class="fas fa-fw fa-table mr-1"></i> Products</a>
                     </div>
                 </div>
             </li>
-            <!-- Nav Item - Dashboard -->
-            <hr class="sidebar-divider">
-            <div class="sidebar-heading">
-                Register 
-            </div>
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'register' %}" >
+
+            <div class="pos-section">Register</div>
+            <li class="nav-item">
+                <a class="nav-link {% if url_name == 'register' %}is-active{% endif %}" href="{% url 'register' %}">
                     <i class="fas fa-cash-register"></i>
                     <span>Register</span>
                 </a>
-                <a class="nav-link" href="{% url 'transactionView' %}" >
-                    <i class="fas fa-list-alt"></i>
+                <a class="nav-link {% if url_name == 'transactionView' or url_name == 'transactionView_id' %}is-active{% endif %}" href="{% url 'transactionView' %}">
+                    <i class="fas fa-receipt"></i>
                     <span>Transactions</span>
-                </a>                    <a class="nav-link" href="{% url 'retail_display' %}" target="_blank" >
-                    <i class="far fa-window-maximize"></i>
+                </a>
+                <a class="nav-link {% if url_name == 'sold_items_report' %}is-active{% endif %}" href="{% url 'sold_items_report' %}">
+                    <i class="fas fa-shopping-basket"></i>
+                    <span>Sold Items</span>
+                </a>
+                <a class="nav-link" href="{% url 'retail_display' %}" target="_blank" title="Opens in a new tab">
+                    <i class="fas fa-external-link-alt pos-ext"></i>
+                    <i class="fas fa-tv"></i>
                     <span>Customer Screen</span>
                 </a>
-                <a class="nav-link" href="{% url 'sold_items_report' %}" >
-                    <i class="fas fa-cart-plus"></i>
-                    <span >Sold Items</span>
-                </a>
-                
             </li>
-            
-            <hr class="sidebar-divider">
-            <div class="sidebar-heading">
-                Other
-            </div>
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'product_lookup_default' %}" >
-                    <i class="fas fa-search"></i>
+
+            <div class="pos-section">Inventory</div>
+            <li class="nav-item">
+                <a class="nav-link {% if url_name == 'product_lookup_default' %}is-active{% endif %}" href="{% url 'product_lookup_default' %}">
+                    <i class="fas fa-search-dollar"></i>
                     <span>Price Lookup</span>
                 </a>
-                <a class="nav-link" href="{% url 'inventory_add' %}" >
-                    <i class="fas fa-dolly"></i>
+                <a class="nav-link {% if url_name == 'inventory_add' %}is-active{% endif %}" href="{% url 'inventory_add' %}">
+                    <i class="fas fa-boxes"></i>
                     <span>Add Inventory</span>
                 </a>
             </li>
-            <hr class="sidebar-divider">
+
             {% if user.is_staff %}
-            <div class="sidebar-heading">
-                Staff
-            </div>
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'admin:login' %}" target="_blank" >
-                    <i class="fas fa-laptop-house"></i>
-                    <span>Data Administration</span>
+            <div class="pos-section">Staff</div>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'admin:login' %}" target="_blank" title="Opens in a new tab">
+                    <i class="fas fa-external-link-alt pos-ext"></i>
+                    <i class="fas fa-user-shield"></i>
+                    <span>Admin</span>
                 </a>
             </li>
-            <hr class="sidebar-divider">
             {% endif %}
-            <!-- Sidebar Toggler (Sidebar) -->
-            <!-- <div class="text-center d-none d-md-inline">
-                <button class="rounded-circle border-0" id="sidebarToggle"></button>
-            </div> -->
+
+            {% if user.is_authenticated %}
+            <div class="pos-user">
+                <div class="pos-avatar" title="{{ user.get_username }}">{{ user.get_username|slice:":1" }}</div>
+                <a class="pos-logout" href="{% url 'user_logout' %}"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
+            </div>
+            {% endif %}
         </ul>
+        {% endwith %}
         {% endblock %}
         <div id="content-wrapper" class="d-flex flex-column">
             <!-- Main Content -->
