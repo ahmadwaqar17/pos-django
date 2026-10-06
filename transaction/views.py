@@ -3,7 +3,7 @@ from django.http import Http404, HttpResponse
 from django.conf import settings 
 from cart.models import Cart
 import pandas as pd
-from .models import transaction
+from .models import productTransaction, transaction
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django import forms
