@@ -109,6 +109,14 @@ Register | Online Retail POS
                             <td>{{value.tax_value}}</td>
                             <td>{{value.deposit_value}}</td>
                             <td>{{value.line_total}}</td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <a href="/cart/remove/{{key}}/"
+                                   class="btn btn-sm btn-outline-danger"
+                                   title="Remove line"
+                                   onclick="return confirm('Remove this line from the cart?');">
+                                    <i class="fas fa-times"></i>
+                                </a>
+                            </td>
                         </tr>
                         {% endfor %}
                     </table> 

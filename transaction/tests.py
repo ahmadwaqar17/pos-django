@@ -100,3 +100,64 @@ class DiscountFlowTests(TestCase):
         txn = transaction.objects.get()
         # Receipt CHANGE line = 500 - 270.
         self.assertIn("PKR   230.00", txn.receipt)
+
+
+class CartRemoveTests(TestCase):
+    """Per-line cart removal: one row gone, totals recompute, discount cleared."""
+
+    @classmethod
+    def setUpTestData(cls):
+        dept = department.objects.create(department_name="Clothing", department_desc="d")
+        zx = tax.objects.create(tax_category="Zero Tax", tax_percentage=Decimal("0.000"))
+        nd = deposit.objects.create(deposit_category="No Deposit", deposit_value=Decimal("0.00"))
+        product.objects.create(
+            barcode="LCR-1", name="Line-Clear Test", department=dept,
+            sales_price=Decimal("200.00"), qty=999, tax_category=zx, deposit_category=nd,
+        )
+        get_user_model().objects.create_user(username="rmadmin", password="pw-12345")
+
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.get(username="rmadmin"))
+        self.client.get("/cart/add/LCR-1/2/")   # 2 x 200 = 400
+        self.client.get("/cart/add/TEST-1/1/")  # 1 x 100 = 100
+
+    def test_remove_line_clears_that_line_only(self):
+        response = self.client.get("/cart/remove/LCR-1/")
+        self.assertEqual(response.status_code, 302)
+        register_response = self.client.get("/register/")
+        cart_data = register_response.context["cart"].cart
+        self.assertNotIn("LCR-1", cart_data)
+        self.assertIn("TEST-1", cart_data)
+
+    def test_totals_recompute_after_removal(self):
+        before_total = self.client.get("/register/").context["total"]
+        self.assertGreater(before_total, 300)
+
+        self.client.get("/cart/remove/LCR-1/")
+        after_total = self.client.get("/register/").context["total"]
+
+        # Remaining line: TEST-1 qty 1 @ 100.00 (zero tax/deposit fixture).
+        self.assertAlmostEqual(float(after_total), 100.00, places=2)
+        self.assertLess(after_total, before_total)
+
+    def test_remove_line_clears_that_line_only(self):
+        response = self.client.get("/cart/remove/LCR-1/")
+        self.assertEqual(response.status_code, 302)
+        cart_data = self.client.get("/register/").context["cart"].cart
+        self.assertNotIn("LCR-1", cart_data)
+        self.assertIn("TEST-1", cart_data)
+
+    def test_remove_nonexistent_barcode_is_noop(self):
+        response = self.client.get("/cart/remove/DOES-NOT-EXIST-9999/")
+        self.assertEqual(response.status_code, 302)
+        cart = self.client.get("/register/").context["cart"]
+        self.assertIn("LCR-1", cart)
+        self.assertIn("TEST-1", cart)
+
+    def test_discount_cleared_when_last_line_removed(self):
+        self.client.get("/register/discount/15/")
+        self.client.get("/cart/remove/LCR-1/")
+        self.client.get("/cart/remove/TEST-1/")
+        resp = self.client.get("/register/")
+        self.assertEqual(resp.context["discount_percent"], 0)
+        self.assertEqual(resp.context["discount_amount"], 0.0)

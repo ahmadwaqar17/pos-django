@@ -63,9 +63,11 @@ urlpatterns = [
 
         # Cart URLs
         path('cart/add/<id>/<qty>/', cart_views.cart_add, name='cart_add'),
+        path('cart/remove/<id>/', cart_views.item_remove, name='cart_remove'),
         path('cart/item_clear/<id>/', cart_views.item_clear, name='item_clear'),
         # path('cart/item_increment/<id>/',cart_views.item_increment, name='item_increment'),
         # path('cart/item_decrement/<id>/',cart_views.item_decrement, name='item_decrement'),
+
 
         #Transactions Related URLs
         path('endTransaction/<type>/<value>/', transaction_views.endTransaction , name='endTransaction'),

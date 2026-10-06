@@ -26,11 +26,25 @@ def cart_add(request,id,qty):
 
 
 @login_required(login_url="/user/login")
-def item_clear(request, id):
+def item_remove(request, id):
+    """Remove an entire cart line immediately (all qty of that product).
+
+    One row gone, cart totals recomputed on the next render. The manual
+    discount is cleared so it cannot linger on a changed cart.
+    """
     cart = Cart(request)
-    product = Product.objects.get(barcode=id)
-    cart.remove(product)
-    return redirect("cart_detail")
+    product = Product.objects.filter(barcode=id).first()
+    if product:
+        cart.remove(product)
+    request.session["Discount_Percent"] = 0
+    request.session.modified = True
+    return redirect("register")
+
+
+@login_required(login_url="/user/login")
+def item_clear(request, id):
+    """Legacy route: delegates to ``item_remove`` (same behaviour)."""
+    return item_remove(request, id)
 
 
 @login_required(login_url="/user/login")
@@ -57,4 +71,3 @@ def cart_clear(request):
     request.session["Discount_Percent"] = 0
     request.session.modified = True
     return redirect('register')
-
