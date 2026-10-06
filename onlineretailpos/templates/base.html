@@ -83,9 +83,44 @@
         }
     </style>
 
+    <style>
+        /* ---- global page loader ----
+           Shown while a page is loading or navigating away. It fades in only
+           after a short delay so fast pages don't flash it, but it blocks
+           clicks immediately to stop double submits. */
+        #pos-loader {
+            position: fixed; inset: 0; z-index: 2000;
+            display: none; align-items: center; justify-content: center; flex-direction: column;
+            background: rgba(248, 249, 252, .72);
+            backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+        }
+        #pos-loader.is-visible { display: flex; animation: pos-loader-in .2s ease .25s both; }
+        #pos-loader .pos-loader-ring {
+            width: 3.25rem; height: 3.25rem; border-radius: 50%;
+            border: 4px solid rgba(78, 90, 232, .18);
+            border-top-color: #4e5ae8; border-right-color: #4e5ae8;
+            animation: pos-loader-spin .75s linear infinite;
+        }
+        #pos-loader .pos-loader-text {
+            margin-top: .85rem; font-size: .8rem; font-weight: 700;
+            letter-spacing: .08em; text-transform: uppercase; color: #2b2f6b;
+        }
+        @keyframes pos-loader-spin { to { transform: rotate(360deg); } }
+        @keyframes pos-loader-in { from { opacity: 0; } to { opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) {
+            #pos-loader .pos-loader-ring { animation-duration: 2s; }
+        }
+        @media print { #pos-loader { display: none !important; } }
+    </style>
+
 </head>
 
 <body id="page-top">
+
+    <div id="pos-loader" class="is-visible" role="status" aria-live="polite">
+        <div class="pos-loader-ring"></div>
+        <div class="pos-loader-text">Loading…</div>
+    </div>
 
     <audio id="notification-audio" preload="auto" autoplay>
         <source src="{% static 'note.mp3' %}" type="audio/mpeg">
@@ -313,6 +348,38 @@
     
     {% block script %}
     {% endblock %}
+
+    <script>
+        (function () {
+            var loader = document.getElementById('pos-loader');
+            if (!loader) return;
+            var safety = null;
+
+            function hide() {
+                clearTimeout(safety);
+                loader.classList.remove('is-visible');
+            }
+            function show() {
+                loader.classList.add('is-visible');
+                // A download or a cancelled navigation never unloads the page,
+                // so don't leave the spinner up forever.
+                clearTimeout(safety);
+                safety = setTimeout(hide, 10000);
+            }
+
+            // Initial load: the overlay starts visible in the markup.
+            if (document.readyState === 'complete') hide();
+            else window.addEventListener('load', hide);
+
+            // Any navigation away: links, form posts, window.open(..., '_self'), etc.
+            window.addEventListener('beforeunload', show);
+
+            // Coming back via the back/forward cache restores the old DOM.
+            window.addEventListener('pageshow', function (e) { if (e.persisted) hide(); });
+
+            window.posLoader = { show: show, hide: hide };
+        })();
+    </script>
 
 
 </body>
