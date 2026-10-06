@@ -3,59 +3,125 @@
 
 {% block title %}Upload stock | {{ site_title }}{% endblock %}
 
+{% block content_title %}Upload stock{% endblock %}
+
 {% block breadcrumbs %}
-  <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">Home</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
-    &rsaquo; <a href="{{ changelist_url }}">{{ opts.verbose_name_plural|capfirst }}</a>
-    &rsaquo; Upload stock
-  </div>
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'admin:index' %}">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ changelist_url }}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+    <li class="breadcrumb-item active">Upload stock</li>
+  </ol>
 {% endblock %}
 
 {% block content %}
-  <h1>Upload stock from Excel (.xlsx)</h1>
+<style>
+  .su-drop {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: .5rem; padding: 2.25rem 1rem; text-align: center; cursor: pointer;
+    border: 2px dashed #c9cdf0; border-radius: .9rem; background: #f7f8fe; transition: border-color .15s, background .15s;
+  }
+  .su-drop:hover, .su-drop.is-over { border-color: #4e5ae8; background: #eef0fd; }
+  .su-drop.has-error { border-color: #e0475b; background: #fdf1f3; }
+  .su-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .su-drop .su-icon { font-size: 2.2rem; color: #4e5ae8; }
+  .su-drop .su-main { font-weight: 700; color: #1f2340; }
+  .su-drop .su-sub { font-size: .85rem; color: #858796; }
+  .su-file { display: none; align-items: center; gap: .6rem; margin-top: .75rem; padding: .6rem .85rem;
+             border-radius: .6rem; background: #e3f6ee; color: #0e7a4f; font-weight: 600; }
+  .su-file.show { display: flex; }
+  .su-steps li { margin-bottom: .55rem; line-height: 1.5; }
+  .su-cols code { background: #eef0fd; color: #3d46c9; padding: .1rem .4rem; border-radius: .35rem; }
+</style>
 
-  <div id="content-main">
-    <form method="post" enctype="multipart/form-data"
-          style="max-width: 640px; margin-top: 12px;">
-      {% csrf_token %}
-      <fieldset class="module aligned">
-        {% if form.non_field_errors %}
-          <ul class="errorlist">{{ form.non_field_errors }}</ul>
-        {% endif %}
-        <div class="form-row{% if form.stock_file.errors %} errors{% endif %}">
-          {% if form.stock_file.errors %}
-            <ul class="errorlist">{{ form.stock_file.errors }}</ul>
+<div class="row">
+  <div class="col-lg-7 mb-4">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title font-weight-bold"><i class="fas fa-file-excel text-success mr-2"></i>Upload an Excel stock sheet</h3>
+      </div>
+      <form method="post" enctype="multipart/form-data" id="stockForm">
+        {% csrf_token %}
+        <div class="card-body">
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
           {% endif %}
-          {{ form.stock_file.label_tag }}
-          {{ form.stock_file }}
-          {% if form.stock_file.help_text %}
-            <p class="help">{{ form.stock_file.help_text|safe }}</p>
+
+          <div class="font-weight-bold mb-2">{{ form.stock_file.label }}</div>
+          <label class="su-drop{% if form.stock_file.errors %} has-error{% endif %}" id="dropZone" for="{{ form.stock_file.id_for_label }}">
+            <i class="fas fa-cloud-upload-alt su-icon"></i>
+            <span class="su-main">Drop your .xlsx file here, or click to choose</span>
+            <span class="su-sub">Excel workbook (.xlsx) · first sheet is imported</span>
+            <input type="file" name="{{ form.stock_file.html_name }}" id="{{ form.stock_file.id_for_label }}"
+                   accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+          </label>
+          <div class="su-file" id="fileChosen"><i class="fas fa-check-circle"></i><span id="fileName"></span></div>
+
+          {% if form.stock_file.errors %}
+            <div class="alert alert-danger mt-3 mb-0">
+              <strong><i class="fas fa-exclamation-circle mr-1"></i> Nothing was imported.</strong>
+              <div class="mt-1" style="white-space: pre-line">{% for e in form.stock_file.errors %}{{ e }}
+{% endfor %}</div>
+            </div>
           {% endif %}
         </div>
-      </fieldset>
-
-      <div class="submit-row" style="border: none;">
-        <input type="submit" value="Import stock" class="default" name="_import">
-        <a href="{{ changelist_url }}" class="button cancel-link">Cancel</a>
-      </div>
-    </form>
-
-    <div style="max-width: 640px; margin-top: 20px;">
-      <h2 style="margin-bottom: 6px;">How the import works</h2>
-      <ul style="margin-left: 18px; line-height: 1.6;">
-        <li>Each <strong>Barcode</strong> becomes one product (the POS scans barcodes).</li>
-        <li>The product name is built as <strong>Code — Size</strong> (e.g. ME1001 — Small).</li>
-        <li>Every product goes to the <strong>Clothing</strong> department with
-            <strong>Zero Tax</strong> / <strong>No Deposit</strong> placeholders.</li>
-        <li><strong>Sales Price / Cost Price</strong> columns are optional — include them
-            to set prices during import; products without them start at 0.00.</li>
-        <li>If a barcode already exists, the sheet quantity is
-            <strong>added</strong> to the current stock, and prices are updated
-            <strong>only where the sheet provides a value</strong>.</li>
-        <li><strong>All-or-nothing:</strong> if any row is invalid (missing barcode,
-            non-numeric quantity or price), nothing is saved and every problem is listed.</li>
-      </ul>
+        <div class="card-footer d-flex justify-content-between align-items-center bg-transparent">
+          <a href="{{ changelist_url }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i> Back to products</a>
+          <button type="submit" name="_import" class="btn btn-primary px-4 ml-auto" id="importBtn">
+            <i class="fas fa-file-import mr-1"></i> Import stock
+          </button>
+        </div>
+      </form>
     </div>
   </div>
+
+  <div class="col-lg-5 mb-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <h3 class="card-title font-weight-bold"><i class="fas fa-info-circle text-primary mr-2"></i>How the import works</h3>
+      </div>
+      <div class="card-body">
+        <p class="su-cols mb-3">
+          <strong>Columns:</strong> <code>Sr. No.</code> <code>Code</code> <code>Barcode</code> <code>Size</code> <code>Quantity</code>,
+          plus optional <code>Sales Price</code> and <code>Cost Price</code>.
+        </p>
+        <ul class="su-steps pl-3 mb-0">
+          <li>Each <strong>Barcode</strong> becomes one product (the POS scans barcodes).</li>
+          <li>The product name is built as <strong>Code — Size</strong> (e.g. ME1001 — Small).</li>
+          <li>New products go to the <strong>Clothing</strong> department with <strong>Zero Tax</strong> / <strong>No Deposit</strong>.</li>
+          <li>Price columns are optional. Products without them start at 0.00.</li>
+          <li>If a barcode already exists, the quantity is <strong>added</strong> to current stock, and prices update only where the sheet has a value.</li>
+          <li><strong>All-or-nothing:</strong> if any row is invalid, nothing is saved and every problem is listed.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var input = document.getElementById('{{ form.stock_file.id_for_label }}');
+  var zone = document.getElementById('dropZone');
+  var chosen = document.getElementById('fileChosen');
+  var nameEl = document.getElementById('fileName');
+  var btn = document.getElementById('importBtn');
+
+  function showFile() {
+    var f = input.files && input.files[0];
+    chosen.classList.toggle('show', !!f);
+    if (f) { nameEl.textContent = f.name + ' (' + Math.max(1, Math.round(f.size / 1024)) + ' KB)'; zone.classList.remove('has-error'); }
+  }
+  input.addEventListener('change', showFile);
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    zone.addEventListener(ev, function () { zone.classList.add('is-over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    zone.addEventListener(ev, function () { zone.classList.remove('is-over'); });
+  });
+  document.getElementById('stockForm').addEventListener('submit', function () {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm mr-2"></span> Importing…';
+  });
+})();
+</script>
 {% endblock %}

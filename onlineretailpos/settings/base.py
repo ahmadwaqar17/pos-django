@@ -209,20 +209,23 @@ JAZZMIN_SETTINGS = {
     "changeform_format": "single",
     "show_ui_builder": False,
     "custom_css": "css/admin_theme.css",
+    "custom_js": "js/admin_theme.js",
 }
 
 JAZZMIN_UI_TWEAKS = {
     "theme": "default",
-    "dark_mode_theme": "darkly",   # follows the OS dark-mode preference
+    # No dark_mode_theme: Jazzmin's OS-following dark theme turns text white while
+    # cards/pages stay light, making text unreadable. Keep the admin light.
+    "dark_mode_theme": None,
     "navbar": "navbar-white navbar-light",
     "no_navbar_border": True,
     "navbar_fixed": True,
-    "sidebar": "sidebar-dark-indigo",
+    "sidebar": "sidebar-dark-primary",
     "sidebar_fixed": True,
     "sidebar_nav_flat_style": True,
     "sidebar_nav_child_indent": True,
-    "brand_colour": "navbar-indigo",
-    "accent": "accent-indigo",
+    "brand_colour": "navbar-dark",
+    "accent": "accent-primary",
     "button_classes": {
         "primary": "btn-primary",
         "secondary": "btn-outline-secondary",

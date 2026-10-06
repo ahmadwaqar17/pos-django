@@ -11,7 +11,6 @@ try:
 except ImportError:
     HAS_IMPORT_EXPORT = False
 
-from rangefilter.filters import DateTimeRangeFilter
 
 # from import_export import resources
 # class TransactionResource(resources.ModelResource):
@@ -25,7 +24,8 @@ from rangefilter.filters import DateTimeRangeFilter
 class TransactionAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else admin.ModelAdmin):
     list_display= ("transaction_dt","transaction_id","total_sale","tax_total","payment_type","products_link","receipt_link",)
     fields = ["user","transaction_dt","transaction_id", "total_sale","sub_total","tax_total","deposit_total","payment_type","receipt","receipt_link","products_link"]
-    list_filter = (("transaction_dt",DateTimeRangeFilter),"transaction_dt","user","payment_type",)
+    list_filter = ("transaction_dt","user","payment_type",)
+    date_hierarchy = "transaction_dt"
     search_fields = ["transaction_id"] 
 
     def receipt_link(self,obj=None):
@@ -53,11 +53,7 @@ class TransactionAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else admin.Mo
     def has_import_permission(self,request, *args):
         return False
 
-    def get_rangefilter_created_at_title(self, request, field_path):
-        return 'Date and Time Filter'
     
-    class Media:
-        js = ["js/jquery.js","js/list_filter_collapse.js",]
 
 
 @admin.register(productTransaction)
@@ -65,7 +61,8 @@ class ProductTransactionAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else a
     list_display= ("transaction_date_time","barcode","name","qty","sales_price","sales_amount","tax_amount","deposit_amount","total_amount","link_transaction",)
     fields = ["transaction_date_time","barcode","name","department","qty","sales_price","cost_price","profit_per_item","Profit_amount","tax_category","tax_percentage","deposit_category","deposit","sales_amount","tax_amount",
         "deposit_amount","total_amount","payment_type","link_transaction",]
-    list_filter = [("transaction_date_time",DateTimeRangeFilter),"department","tax_category","deposit_category","payment_type"]
+    list_filter = ["transaction_date_time","department","tax_category","deposit_category","payment_type"]
+    date_hierarchy = "transaction_date_time"
     search_fields = ["transaction_id_num","barcode","name",] 
 
     def link_transaction(self,obj= None):
@@ -99,5 +96,3 @@ class ProductTransactionAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else a
     def has_import_permission(self,request, *args):
         return False
 
-    class Media:
-        js = ["js/jquery.js","js/list_filter_collapse.js",]

@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+
+{# Apply the saved Light / Dark / System theme before first paint (no flash). #}
+{# The switcher itself lives in static/js/admin_theme.js (Jazzmin custom_js). #}
+{% block extrahead %}
+<script>
+(function () {
+    var pref = 'system';
+    try { pref = localStorage.getItem('admin-theme') || 'system'; } catch (e) {}
+    var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme-pref', pref);
+})();
+</script>
+{{ block.super }}
+{% endblock %}

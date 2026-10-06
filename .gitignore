@@ -22,7 +22,8 @@ db.sqlite3
 db.sqlite3-journal
 media/
 staticfiles/
-static/
+# collectstatic output (STATIC_ROOT) at the repo root only — app static folders stay tracked
+/static/
 
 # IDE
 .vscode/
