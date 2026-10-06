@@ -39,6 +39,7 @@ class printer:
             printer.printer = None
 
 
+@login_required(login_url="/user/login/")
 def transactionReceipt(request,transNo):
     try:
         t = transaction.objects.get(transaction_id=transNo)
@@ -55,6 +56,7 @@ def transactionReceipt(request,transNo):
     except transaction.DoesNotExist:
         raise Http404("No Transactions Found!!!")
 
+@login_required(login_url="/user/login/")
 def transactionPrintReceipt(request,transNo):
     try:
         receipt = transaction.objects.get(transaction_id=transNo).receipt
@@ -212,6 +214,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum
 
 
+@login_required(login_url="/user/login/")
 def sold_items_report(request):
     """Line-items sold within a chosen date range (defaults to today).
 

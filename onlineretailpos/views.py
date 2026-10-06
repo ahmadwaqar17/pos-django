@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django import forms
 from django.db.models import Q
+from django.utils.http import url_has_allowed_host_and_scheme
 from cart.models import Cart, displayed_items
 from inventory.models import product, department
 from transaction.models import productTransaction, transaction
@@ -347,15 +348,20 @@ def dashboard_sales(request):
     context['avg_30'] = float(last30.mean()) if len(last30) else 0
     context['best_day'] = (last30.idxmax().date(), float(last30.max())) if last30.max() > 0 else None
     colors = [MONEY if d.date() == today else BRAND for d in last30.index]
+    # One category per day so all 30 days get their own slot and label.
+    labels = [d.strftime('%d %b') for d in last30.index]
+    tick_text = [f"<b>{l}</b>" if d.date() == today else l for l, d in zip(labels, last30.index)]
     fig = go.Figure(go.Bar(
-        x=last30.index, y=last30.values, marker_color=colors, marker_line_width=0,
-        hovertemplate="<b>%{x|%a, %d %b}</b><br>Rs %{y:,.2f}<extra></extra>"))
+        x=labels, y=last30.values, marker_color=colors, marker_line_width=0,
+        customdata=[d.strftime('%a, %d %b') for d in last30.index],
+        hovertemplate="<b>%{customdata}</b><br>Rs %{y:,.2f}<extra></extra>"))
     if context['avg_30']:
         fig.add_hline(y=context['avg_30'], line_dash="dot", line_color="#9a9db8", line_width=1,
                       annotation_text=f"avg {context['avg_30']:,.0f}", annotation_position="top left",
                       annotation_font=dict(size=11, color="#9a9db8"))
     _style(fig, 330)
-    fig.update_xaxes(tickformat="%d %b", dtick=86400000 * 3)
+    fig.update_xaxes(type="category", tickmode="array", tickvals=labels, ticktext=tick_text,
+                     tickangle=-45, tickfont=dict(size=11))
     context['sales_30_graph'] = _plot_div(fig)
 
     # --- today: by hour + payment mix --------------------------------------
@@ -391,23 +397,27 @@ def dashboard_sales(request):
 
 
 def user_login(request):
+    next_url = request.POST.get('next') or request.GET.get('next') or ''
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()},
+                                           require_https=request.is_secure()):
+        next_url = ''
+    context = {"store_name": settings.STORE_NAME, "next": next_url}
     if request.method == 'POST':
-        username = request.POST.get('username')
+        username = request.POST.get('username', '')
         password = request.POST.get('password')
         user = authenticate(username=username, password=password)
         if user is not None:
             login(request, user)
             request.session["Total"] = 0.00
             request.session["Tax_Total"] = 0.00
-            return redirect('home')
-        else:
-            return render(request, 'registration/login.html',context={'error':True,"store_name":settings.STORE_NAME})
-    else:
-        return render(request, 'registration/login.html',context={"store_name":settings.STORE_NAME},)
+            return redirect(next_url or 'home')
+        context.update(error=True, username=username)
+    return render(request, 'registration/login.html', context=context)
 
 
 @login_required(login_url="/user/login/")
 def user_logout(request):
     logout(request)
-    return render(request, 'registration/login.html',context={'logout':True})
+    return render(request, 'registration/login.html',
+                  context={'logout': True, "store_name": settings.STORE_NAME})
 

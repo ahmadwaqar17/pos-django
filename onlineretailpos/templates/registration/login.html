@@ -1,57 +1,228 @@
 <!-- templates/registration/login.html -->
-{% extends 'base.html' %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Sign in | Online Retail POS</title>
+    <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand: #2b2f6b; --brand-deep: #1e2150; --accent: #4e5ae8; --accent-soft: #eef0fd;
+            --ink: #1f2340; --ink-soft: #5f6383; --ink-faint: #9a9db8; --rule: #e3e6f0;
+            --ok: #12a46a; --err: #e0475b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body { font-family: "Nunito", "Helvetica Neue", Arial, sans-serif; color: var(--ink); background: #f4f5fb; }
 
-{% block title %}
-Welcome | Online Retail POS
-{% endblock %}
+        .auth { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
 
-{% block nav-item %}
-<div class="mb-0 font-weight-bold  h5 text-gray-900 text-uppercase p-3 ">Online retail Pos system - {{ store_name }} </div>
-{% endblock %}
+        /* ---- brand panel ---- */
+        .brand {
+            position: relative; overflow: hidden; color: #fff;
+            background: linear-gradient(160deg, var(--brand) 0%, var(--brand-deep) 100%);
+            padding: clamp(28px, 4vw, 64px); display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .brand::before, .brand::after {
+            content: ""; position: absolute; border-radius: 50%; pointer-events: none;
+            background: radial-gradient(circle, rgba(108, 123, 255, .35), transparent 70%);
+        }
+        .brand::before { width: 520px; height: 520px; right: -160px; top: -140px; }
+        .brand::after { width: 420px; height: 420px; left: -140px; bottom: -160px; opacity: .7; }
+        .brand > * { position: relative; z-index: 1; }
+        .logo-row { display: flex; align-items: center; gap: .85rem; }
+        .logo {
+            width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #6c7bff, var(--accent)); box-shadow: 0 10px 24px rgba(78, 90, 232, .5);
+            font-size: 1.35rem;
+        }
+        .logo-row .name { font-weight: 800; font-size: 1.1rem; line-height: 1.2; }
+        .logo-row .sub { font-size: .8rem; opacity: .6; font-weight: 600; }
 
-{% block sidebar %}
-{% endblock %}
+        .pitch h1 { font-size: clamp(28px, 3.2vw, 46px); font-weight: 900; line-height: 1.1; letter-spacing: -.02em; max-width: 14ch; }
+        .pitch p { margin-top: 1rem; font-size: 1.05rem; opacity: .7; max-width: 38ch; line-height: 1.5; }
+        .features { list-style: none; margin-top: 2rem; display: grid; gap: .85rem; }
+        .features li { display: flex; align-items: center; gap: .75rem; font-weight: 600; opacity: .9; }
+        .features i {
+            width: 2.1rem; height: 2.1rem; border-radius: .7rem; display: flex; align-items: center; justify-content: center;
+            background: rgba(255, 255, 255, .1); font-size: .9rem;
+        }
+        .brand .foot { font-size: .8rem; opacity: .45; }
 
-{% block content %}
-<!-- Outer Row -->
-{% if logout %}
-<div class="col-lg-6 card border-left-success shadow h-100 py-2" style="width:100%;margin-top:10px;">
-    <h6 class="mb-0 font-weight-bold text-uppercase text-success ">Successfully Logged Out!!!</h6>
-</div>
-{% endif %}
-{% if error %}
-<div class="col-lg-6 card border-left-danger shadow h-100 py-2" style="width:100%;margin-top:10px;">
-    <h6 class="mb-0 font-weight-bold text-uppercase text-danger ">Log-In Error, Please enter correct credential!!!</h6>
-</div>
-{% endif %}
+        /* ---- form panel ---- */
+        .panel { display: flex; align-items: center; justify-content: center; padding: clamp(24px, 4vw, 64px); background: #fff; }
+        .form-box { width: 100%; max-width: 400px; }
+        .form-box h2 { font-size: 1.9rem; font-weight: 900; letter-spacing: -.02em; }
+        .form-box .lead { color: var(--ink-soft); margin-top: .35rem; margin-bottom: 1.75rem; }
 
-<div class="row-fluid card o-hidden border-4 shadow-sm m-5">
-   <div class="card-header">
-        <div class="text-center p-2">
-            <h1 class="h4 text-gray-900 m-3">Welcome!</h1>
+        .alert {
+            display: flex; align-items: center; gap: .6rem; padding: .8rem 1rem; border-radius: .8rem;
+            font-size: .9rem; font-weight: 700; margin-bottom: 1.25rem;
+        }
+        .alert.ok { background: rgba(18, 164, 106, .1); color: var(--ok); }
+        .alert.err { background: rgba(224, 71, 91, .1); color: var(--err); }
+
+        .field { margin-bottom: 1.1rem; }
+        .field label { display: block; font-size: .8rem; font-weight: 800; color: var(--ink-soft); margin-bottom: .45rem; letter-spacing: .02em; }
+        .input { position: relative; }
+        .input > i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--ink-faint); font-size: .9rem; }
+        .input input {
+            width: 100%; height: 3.25rem; padding: 0 3rem 0 2.75rem; font: inherit; font-size: 1rem; color: var(--ink);
+            border: 1.5px solid var(--rule); border-radius: .85rem; background: #fafbff;
+            transition: border-color .15s, box-shadow .15s, background .15s;
+        }
+        .input input::placeholder { color: #b7b9cc; }
+        .input input:focus { outline: none; border-color: var(--accent); background: #fff; box-shadow: 0 0 0 4px rgba(78, 90, 232, .12); }
+        .has-error .input input { border-color: var(--err); }
+        .toggle {
+            position: absolute; right: .5rem; top: 50%; transform: translateY(-50%);
+            width: 2.25rem; height: 2.25rem; border: 0; border-radius: .6rem; background: transparent;
+            color: var(--ink-faint); cursor: pointer;
+        }
+        .toggle:hover { background: var(--accent-soft); color: var(--accent); }
+        .caps { display: none; font-size: .78rem; color: #d97706; font-weight: 700; margin-top: .4rem; }
+        .caps.show { display: block; }
+
+        .submit {
+            width: 100%; height: 3.25rem; margin-top: .6rem; border: 0; border-radius: .85rem; cursor: pointer;
+            font: inherit; font-size: 1rem; font-weight: 800; color: #fff;
+            background: linear-gradient(135deg, #5b67f0, var(--accent));
+            box-shadow: 0 10px 24px rgba(78, 90, 232, .35); transition: transform .1s, box-shadow .15s, opacity .15s;
+            display: flex; align-items: center; justify-content: center; gap: .6rem;
+        }
+        .submit:hover { box-shadow: 0 12px 28px rgba(78, 90, 232, .45); }
+        .submit:active { transform: translateY(1px); }
+        .submit:disabled { opacity: .8; cursor: progress; }
+        .spinner {
+            display: none; width: 1.1rem; height: 1.1rem; border-radius: 50%;
+            border: 2.5px solid rgba(255, 255, 255, .35); border-top-color: #fff; animation: spin .7s linear infinite;
+        }
+        .submit.loading .spinner { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .help { margin-top: 1.5rem; text-align: center; font-size: .85rem; color: var(--ink-faint); }
+
+        @media (max-width: 900px) {
+            .auth { grid-template-columns: 1fr; }
+            .brand { padding: 24px; }
+            .pitch, .features, .brand .foot { display: none; }
+            .panel { align-items: flex-start; padding-top: 40px; }
+        }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+<main class="auth">
+    <section class="brand">
+        <div class="logo-row">
+            <div class="logo"><i class="fas fa-store"></i></div>
+            <div>
+                <div class="name">{{ store_name|default:"Online Retail POS" }}</div>
+                <div class="sub">Point of Sale</div>
+            </div>
         </div>
-    </div>
-    <div class="row card-body p-0">
-        <!-- Nested Row within Card Body -->
-        <div class="col-lg-6 d-none d-lg-block" style="justify-content:center;text-align:center">
-            <img src="{% static 'img/log-in-gcb59d165a_1280.jpg' %}" width="500px" height="350px"  >
+
+        <div class="pitch">
+            <h1>Run your counter faster.</h1>
+            <p>Ring up sales, track stock and see how the day is going, all in one place.</p>
+            <ul class="features">
+                <li><i class="fas fa-cash-register"></i> Quick checkout with barcode scanning</li>
+                <li><i class="fas fa-boxes"></i> Live inventory and price lookup</li>
+                <li><i class="fas fa-chart-pie"></i> Sales dashboards and reports</li>
+            </ul>
         </div>
-        <div class="col-lg-6 p-5 center" >
-            <form class="user" method="post" action="{% url 'user_login' %}" style="padding: 20px;">
+
+        <div class="foot">&copy; {% now "Y" %} Online Retail POS</div>
+    </section>
+
+    <section class="panel">
+        <div class="form-box">
+            <h2>Welcome back</h2>
+            <p class="lead">Sign in to continue to your register.</p>
+
+            {% if logout %}
+            <div class="alert ok" role="status"><i class="fas fa-check-circle"></i> You've been signed out.</div>
+            {% endif %}
+            {% if error %}
+            <div class="alert err" role="alert"><i class="fas fa-exclamation-circle"></i> Incorrect username or password.</div>
+            {% endif %}
+
+            <form method="post" action="{% url 'user_login' %}" id="loginForm" novalidate>
                 {% csrf_token %}
-                <div class="form-group mb-3">
-                    <input type="username" autocomplete="off" name="username" class="form-control form-control-user"
-                        id="username" placeholder="Please Enter Username...">
+                {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+                <div class="field {% if error %}has-error{% endif %}">
+                    <label for="username">Username</label>
+                    <div class="input">
+                        <i class="fas fa-user"></i>
+                        <input type="text" name="username" id="username" value="{{ username|default:'' }}"
+                               placeholder="Enter your username" autocomplete="username" autocapitalize="none"
+                               spellcheck="false" required {% if not username %}autofocus{% endif %}>
+                    </div>
                 </div>
-                <div class="form-group mb-5">
-                    <input type="password" autocomplete="off" name="password" class="form-control form-control-user"
-                        id="password" placeholder="Enter Your Password...">
+
+                <div class="field {% if error %}has-error{% endif %}">
+                    <label for="password">Password</label>
+                    <div class="input">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" name="password" id="password" placeholder="Enter your password"
+                               autocomplete="current-password" required {% if username %}autofocus{% endif %}>
+                        <button type="button" class="toggle" id="togglePw" aria-label="Show password"><i class="fas fa-eye"></i></button>
+                    </div>
+                    <div class="caps" id="capsWarn"><i class="fas fa-arrow-up"></i> Caps Lock is on</div>
                 </div>
-                <hr>
-                <button type="Submit" class="btn btn-primary btn-user btn-block"> Login </button>
+
+                <button type="submit" class="submit" id="submitBtn">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span class="label">Sign in</span>
+                </button>
             </form>
+
+            <p class="help">Forgot your password? Ask your store manager to reset it.</p>
         </div>
-    </div>
-</div>
-{% endblock %}
+    </section>
+</main>
+
+<script>
+(function () {
+    var pw = document.getElementById('password');
+    var toggle = document.getElementById('togglePw');
+    toggle.addEventListener('click', function () {
+        var show = pw.type === 'password';
+        pw.type = show ? 'text' : 'password';
+        toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        toggle.innerHTML = '<i class="fas ' + (show ? 'fa-eye-slash' : 'fa-eye') + '"></i>';
+        pw.focus();
+    });
+
+    var caps = document.getElementById('capsWarn');
+    ['keydown', 'keyup'].forEach(function (ev) {
+        pw.addEventListener(ev, function (e) {
+            if (e.getModifierState) caps.classList.toggle('show', e.getModifierState('CapsLock'));
+        });
+    });
+
+    var form = document.getElementById('loginForm');
+    var btn = document.getElementById('submitBtn');
+    form.addEventListener('submit', function (e) {
+        var u = document.getElementById('username');
+        if (!u.value.trim()) { e.preventDefault(); u.focus(); return; }
+        if (!pw.value) { e.preventDefault(); pw.focus(); return; }
+        btn.disabled = true;
+        btn.classList.add('loading');
+        btn.querySelector('.label').textContent = 'Signing in…';
+    });
+    // Re-enable if the page is restored from the back/forward cache.
+    window.addEventListener('pageshow', function () {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        btn.querySelector('.label').textContent = 'Sign in';
+    });
+})();
+</script>
+</body>
+</html>
