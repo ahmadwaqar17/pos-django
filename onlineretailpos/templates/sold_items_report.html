@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sold Items Report | Online Retail POS{% endblock %}
+
+{% block nav-item %}
+<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3 d-flex align-items-center justify-content-between">
+    <span>Sold Items Report</span>
+    <button type="button" class="btn btn-primary btn-sm shadow-sm" onclick="window.print()">
+        <i class="fas fa-print mr-1"></i> Print
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">Items Sold — Date Filter</h6>
+    </div>
+    <div class="card-body">
+        <form method="post" class="form-row align-items-end">
+            {% csrf_token %}
+            <div class="col-auto">
+                <label class="font-weight-bold text-dark mb-1">From:</label>
+                {{ form.start_date }}
+            </div>
+            <div class="col-auto">
+                <label class="font-weight-bold text-dark mb-1">To:</label>
+                {{ form.end_date }}
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary mb-3">Filter</button>
+                <a href="{% url 'sold_items_report' %}" class="btn btn-outline-secondary mb-3">Reset to today</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm mt-3">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">Sold Items — {{ start_date|date:"d M Y" }}{% if start_date != end_date %} — {{ end_date|date:"d M Y" }}{% endif %}</h6>
+        <span class="badge badge-primary">{{ rows|length }} item(s)</span>
+    </div>
+    <div class="card-body p-0">
+        {% if rows %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="thead-light">
+                <tr>
+                    <th>Date / Time</th>
+                    <th>Receipt #</th>
+                    <th>Barcode</th>
+                    <th>Product</th>
+                    <th>Dept</th>
+                    <th style="text-align:right">Qty</th>
+                    <th style="text-align:right">Price</th>
+                    <th style="text-align:right">Line Total</th>
+                    <th style="text-align:right">Tax</th>
+                    <th style="text-align:right">Deposit</th>
+                    <th>Payment</th>
+                    <th>Cashier</th>
+                    <th>Store</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td>{{ r.transaction_date_time|date:"d-m-Y H:i" }}</td>
+                    <td><code>{{ r.transaction_id_num }}</code></td>
+                    <td><code>{{ r.barcode }}</code></td>
+                    <td class="text-left font-weight-bold text-dark">{{ r.name }}</td>
+                    <td>{{ r.department|default:"—" }}</td>
+                    <td style="text-align:right">{{ r.qty }}</td>
+                    <td style="text-align:right">{{ r.sales_price|floatformat:2 }}</td>
+                    <td style="text-align:right font-weight-bold text-dark">{{ r.sales_price|mul:r.qty|floatformat:2 }}</td>
+                    <td style="text-align:right">{{ r.tax_amount|default:0|floatformat:2 }}</td>
+                    <td style="text-align:right">{{ r.deposit_amount|default:0|floatformat:2 }}</td>
+                    <td><span class="badge badge-light border">{{ r.payment_type }}</span></td>
+                    <td>{{ users|r.transaction__user_id|default:"—" }}</td>
+                    <td>{{ r.transaction__store_id|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+            <i class="fas fa-inbox fa-2x mb-2 text-gray-300"></i>
+            <div class="h5">No items sold in the selected period.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm mt-3">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Summary — {{ start_date|date:"d M Y" }}{% if start_date != end_date %} — {{ end_date|date:"d M Y" }}{% endif %}</h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-sm-4">
+                <div class="h6 text-gray-800">Total Line Items</div>
+                <div class="h4 font-weight-bold text-dark">{{ rows|length }}</div>
+            </div>
+            <div class="col-sm-4">
+                <div class="h6 text-gray-800">Total Quantity Sold</div>
+                <div class="h4 font-weight-bold text-dark">{{ total_qty|floatformat:0|default:0 }}</div>
+            </div>
+            <div class="col-sm-4">
+                <div class="h6 text-gray-800">Total Revenue</div>
+                <div class="h4 font-weight-bold text-success">PKR {{ total_revenue|floatformat:2|default:0 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
