@@ -4,112 +4,182 @@
 {% block title %}Sold Items Report | Online Retail POS{% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3 d-flex align-items-center justify-content-between">
-    <span>Sold Items Report</span>
-    <button type="button" class="btn btn-primary btn-sm shadow-sm" onclick="window.print()">
+<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3 d-flex align-items-center">
+    <span class="mr-3">Sold Items Report</span>
+    <button type="button" class="btn btn-primary btn-sm shadow-sm d-print-none" onclick="window.print()">
         <i class="fas fa-print mr-1"></i> Print
     </button>
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="card shadow-sm">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-        <h6 class="m-0 font-weight-bold text-primary">Items Sold — Date Filter</h6>
-    </div>
-    <div class="card-body">
-        <form method="post" class="form-row align-items-end">
+<style>
+    .si-filter select { border: 1px solid #d1d3e2; border-radius: .35rem; padding: .3rem .4rem; color: #5a5c69; background: #fff; }
+    .si-filter .date-group { display: inline-flex; gap: .25rem; }
+    .si-stat .label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .si-stat .value { font-size: 1.35rem; font-weight: 700; color: #5a5c69; white-space: nowrap; }
+    .si-table th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: #858796; white-space: nowrap; border-top: 0; }
+    .si-table td { vertical-align: middle; white-space: nowrap; }
+    .si-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .si-table .receipt { font-family: monospace; font-size: .8rem; color: #858796; }
+    .si-table .product-name { font-weight: 600; color: #3a3b45; }
+    .si-table .barcode { font-family: monospace; font-size: .75rem; color: #b7b9cc; }
+    .si-table tfoot td { font-weight: 700; color: #3a3b45; background: #f8f9fc; border-top: 2px solid #e3e6f0; }
+    @media print {
+        .sidebar, .topbar, .d-print-none, .scroll-to-top { display: none !important; }
+        .si-table td, .si-table th { font-size: 10px; padding: .25rem; }
+    }
+</style>
+
+{% with period_label=start_date|date:"d M Y" %}
+
+<!-- Filter -->
+<div class="card shadow-sm mb-4 d-print-none">
+    <div class="card-body py-3">
+        <form method="post" class="si-filter d-flex flex-wrap align-items-center" style="gap:1rem">
             {% csrf_token %}
-            <div class="col-auto">
-                <label class="font-weight-bold text-dark mb-1">From:</label>
-                {{ form.start_date }}
+            <div class="d-flex align-items-center" style="gap:.5rem">
+                <span class="small font-weight-bold text-gray-600 text-uppercase">From</span>
+                <span class="date-group">{{ form.start_date }}</span>
             </div>
-            <div class="col-auto">
-                <label class="font-weight-bold text-dark mb-1">To:</label>
-                {{ form.end_date }}
+            <div class="d-flex align-items-center" style="gap:.5rem">
+                <span class="small font-weight-bold text-gray-600 text-uppercase">To</span>
+                <span class="date-group">{{ form.end_date }}</span>
             </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-primary mb-3">Filter</button>
-                <a href="{% url 'sold_items_report' %}" class="btn btn-outline-secondary mb-3">Reset to today</a>
+            <button type="submit" class="btn btn-primary btn-sm px-3"><i class="fas fa-filter mr-1"></i> Apply</button>
+            <div class="ml-lg-auto d-flex flex-wrap" style="gap:.35rem">
+                {% for label, qs, qe in quick_ranges %}
+                <a href="?start={{ qs|date:'Y-m-d' }}&end={{ qe|date:'Y-m-d' }}"
+                   class="btn btn-sm {% if qs == start_date and qe == end_date %}btn-primary{% else %}btn-light border{% endif %}">{{ label }}</a>
+                {% endfor %}
             </div>
         </form>
     </div>
 </div>
 
-<div class="card shadow-sm mt-3">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-        <h6 class="m-0 font-weight-bold text-primary">Sold Items — {{ start_date|date:"d M Y" }}{% if start_date != end_date %} — {{ end_date|date:"d M Y" }}{% endif %}</h6>
-        <span class="badge badge-primary">{{ rows|length }} item(s)</span>
+<h6 class="text-gray-600 mb-3">
+    <i class="far fa-calendar-alt mr-1"></i>
+    {{ period_label }}{% if start_date != end_date %} &ndash; {{ end_date|date:"d M Y" }}{% endif %}
+</h6>
+
+<!-- Stats -->
+<div class="row">
+    <div class="col-xl col-md-4 col-6 mb-4">
+        <div class="card border-left-success shadow-sm h-100 py-2 si-stat"><div class="card-body py-2">
+            <div class="label text-success mb-1">Net Revenue</div>
+            <div class="value">{{ currency }} {{ total_revenue|floatformat:2 }}</div>
+        </div></div>
+    </div>
+    <div class="col-xl col-md-4 col-6 mb-4">
+        <div class="card border-left-primary shadow-sm h-100 py-2 si-stat"><div class="card-body py-2">
+            <div class="label text-primary mb-1">Gross Sales</div>
+            <div class="value">{{ currency }} {{ gross_sales|floatformat:2 }}</div>
+        </div></div>
+    </div>
+    <div class="col-xl col-md-4 col-6 mb-4">
+        <div class="card border-left-danger shadow-sm h-100 py-2 si-stat"><div class="card-body py-2">
+            <div class="label text-danger mb-1">Discounts</div>
+            <div class="value">{{ currency }} {{ total_discount|floatformat:2 }}</div>
+        </div></div>
+    </div>
+    <div class="col-xl col-md-4 col-6 mb-4">
+        <div class="card border-left-info shadow-sm h-100 py-2 si-stat"><div class="card-body py-2">
+            <div class="label text-info mb-1">Units Sold</div>
+            <div class="value">{{ total_qty }}</div>
+        </div></div>
+    </div>
+    <div class="col-xl col-md-4 col-6 mb-4">
+        <div class="card border-left-warning shadow-sm h-100 py-2 si-stat"><div class="card-body py-2">
+            <div class="label text-warning mb-1">Receipts</div>
+            <div class="value">{{ total_receipts }} <small class="text-gray-500" style="font-size:.8rem">/ {{ rows|length }} lines</small></div>
+        </div></div>
+    </div>
+</div>
+
+<!-- Items -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">Line Items</h6>
+        <span class="badge badge-pill badge-primary px-3 py-1">{{ rows|length }} line{{ rows|length|pluralize }}</span>
     </div>
     <div class="card-body p-0">
         {% if rows %}
         <div class="table-responsive">
-            <table class="table table-bordered table-hover mb-0">
-                <thead class="thead-light">
+            <table class="table table-hover table-sm mb-0 si-table">
+                <thead class="bg-light">
                 <tr>
-                    <th>Date / Time</th>
-                    <th>Receipt #</th>
-                    <th>Barcode</th>
+                    <th class="pl-3">Time</th>
                     <th>Product</th>
                     <th>Dept</th>
-                    <th style="text-align:right">Qty</th>
-                    <th style="text-align:right">Price</th>
-                    <th style="text-align:right">Line Total</th>
-                    <th style="text-align:right">Tax</th>
-                    <th style="text-align:right">Deposit</th>
+                    <th class="num">Qty</th>
+                    <th class="num">Price</th>
+                    <th class="num">Line Total</th>
+                    <th class="num">Tax</th>
+                    <th class="num">Deposit</th>
                     <th>Payment</th>
                     <th>Cashier</th>
+                    <th class="pr-3">Receipt #</th>
                 </tr>
                 </thead>
                 <tbody>
                 {% for r in rows %}
                 <tr>
-                    <td>{{ r.transaction_date_time|date:"d-m-Y H:i" }}</td>
-                    <td><code>{{ r.transaction_id_num }}</code></td>
-                    <td><code>{{ r.barcode }}</code></td>
-                    <td class="text-left font-weight-bold text-dark">{{ r.name }}</td>
-                    <td>{{ r.department|default:"—" }}</td>
-                    <td style="text-align:right">{{ r.qty }}</td>
-                    <td style="text-align:right">{{ r.sales_price|floatformat:2 }}</td>
-                    <td class="font-weight-bold text-dark" style="text-align:right">{{ r.line_total|floatformat:2 }}</td>
-                    <td style="text-align:right">{{ r.tax_amount|default:0|floatformat:2 }}</td>
-                    <td style="text-align:right">{{ r.deposit_amount|default:0|floatformat:2 }}</td>
-                    <td><span class="badge badge-light border">{{ r.payment_type }}</span></td>
-                    <td>{{ r.cashier|default:"—" }}</td>
+                    <td class="pl-3">
+                        <div class="text-gray-800">{{ r.transaction_date_time|date:"H:i" }}</div>
+                        <div class="small text-gray-500">{{ r.transaction_date_time|date:"d M Y" }}</div>
+                    </td>
+                    <td>
+                        <div class="product-name">{{ r.name }}</div>
+                        <div class="barcode">{{ r.barcode }}</div>
+                    </td>
+                    <td class="text-gray-600">{{ r.department|default:"—" }}</td>
+                    <td class="num">{{ r.qty }}</td>
+                    <td class="num text-gray-600">{{ r.sales_price|floatformat:2 }}</td>
+                    <td class="num font-weight-bold text-gray-800">{{ r.line_total|floatformat:2 }}</td>
+                    <td class="num text-gray-600">{{ r.tax_amount|default:0|floatformat:2 }}</td>
+                    <td class="num text-gray-600">{{ r.deposit_amount|default:0|floatformat:2 }}</td>
+                    <td>
+                        <span class="badge {% if r.payment_type == 'CASH' %}badge-success{% else %}badge-info{% endif %} px-2">{{ r.payment_type }}</span>
+                    </td>
+                    <td class="text-gray-700"><i class="fas fa-user-circle text-gray-400 mr-1"></i>{{ r.cashier|default:"—" }}</td>
+                    <td class="pr-3 receipt">{{ r.transaction_id_num }}</td>
                 </tr>
                 {% endfor %}
                 </tbody>
+                <tfoot>
+                <tr>
+                    <td class="pl-3" colspan="3">Total</td>
+                    <td class="num">{{ total_qty }}</td>
+                    <td></td>
+                    <td class="num">{{ gross_sales|floatformat:2 }}</td>
+                    <td class="num">{{ total_tax|floatformat:2 }}</td>
+                    <td class="num">{{ total_deposit|floatformat:2 }}</td>
+                    <td colspan="3"></td>
+                </tr>
+                {% if total_discount %}
+                <tr>
+                    <td class="pl-3 text-danger" colspan="5">Less: receipt discounts</td>
+                    <td class="num text-danger">&minus;{{ total_discount|floatformat:2 }}</td>
+                    <td colspan="5"></td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td class="pl-3 text-success" colspan="5">Net revenue (incl. tax &amp; deposit)</td>
+                    <td class="num text-success">{{ total_revenue|floatformat:2 }}</td>
+                    <td colspan="5"></td>
+                </tr>
+                </tfoot>
             </table>
         </div>
         {% else %}
-        <div class="text-center text-muted py-4">
-            <i class="fas fa-inbox fa-2x mb-2 text-gray-300"></i>
-            <div class="h5">No items sold in the selected period.</div>
+        <div class="text-center text-gray-500 py-5">
+            <i class="fas fa-receipt fa-3x mb-3 text-gray-300"></i>
+            <div class="h6 mb-1">No items sold in this period</div>
+            <div class="small">Try a different date range above.</div>
         </div>
         {% endif %}
     </div>
 </div>
 
-<div class="card shadow-sm mt-3">
-    <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">Summary — {{ start_date|date:"d M Y" }}{% if start_date != end_date %} — {{ end_date|date:"d M Y" }}{% endif %}</h6>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-sm-4">
-                <div class="h6 text-gray-800">Total Line Items</div>
-                <div class="h4 font-weight-bold text-dark">{{ rows|length }}</div>
-            </div>
-            <div class="col-sm-4">
-                <div class="h6 text-gray-800">Total Quantity Sold</div>
-                <div class="h4 font-weight-bold text-dark">{{ total_qty|floatformat:0|default:0 }}</div>
-            </div>
-            <div class="col-sm-4">
-                <div class="h6 text-gray-800">Total Revenue</div>
-                <div class="h4 font-weight-bold text-success">PKR {{ total_revenue|floatformat:2|default:0 }}</div>
-            </div>
-        </div>
-    </div>
-</div>
-
+{% endwith %}
 {% endblock %}

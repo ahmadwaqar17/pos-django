@@ -209,6 +209,7 @@ def endTransaction(request,type,value):
 
 
 from django.contrib.auth import get_user_model
+from django.db.models import Count, Sum
 
 
 def sold_items_report(request):
@@ -219,7 +220,13 @@ def sold_items_report(request):
     """
     today = datetime.now().date()
     start_date = end_date = today
-    form = DateSelector(initial={'start_date': today, 'end_date': today})
+    if request.GET.get('start') and request.GET.get('end'):
+        try:
+            start_date = datetime.strptime(request.GET['start'], '%Y-%m-%d').date()
+            end_date = datetime.strptime(request.GET['end'], '%Y-%m-%d').date()
+        except ValueError:
+            start_date = end_date = today
+    form = DateSelector(initial={'start_date': start_date, 'end_date': end_date})
     if request.method == "POST":
         form = DateSelector(request.POST)
         if form.is_valid():
@@ -245,9 +252,32 @@ def sold_items_report(request):
         r['line_total'] = (r['sales_price'] or 0) * (r['qty'] or 0)
         r['cashier'] = users.get(r['transaction__user_id'])
 
+    # Money totals come from the stored transactions so receipt-level
+    # discounts are reflected exactly as they were charged.
+    totals = transaction.objects.filter(
+        id__in={r['transaction_id'] for r in rows}).aggregate(
+        receipts=Count('id'), revenue=Sum('total_sale'),
+        discount=Sum('discount_amount'), tax=Sum('tax_total'),
+        deposit=Sum('deposit_total'))
+
+    quick_ranges = [
+        ('Today', today, today),
+        ('Yesterday', today - timedelta(days=1), today - timedelta(days=1)),
+        ('Last 7 days', today - timedelta(days=6), today),
+        ('This month', today.replace(day=1), today),
+    ]
+
     context = {
         'form': form,
         'rows': rows,
+        'total_qty': sum(r['qty'] or 0 for r in rows),
+        'gross_sales': sum(r['line_total'] for r in rows),
+        'total_receipts': totals['receipts'] or 0,
+        'total_revenue': totals['revenue'] or 0,
+        'total_discount': totals['discount'] or 0,
+        'total_tax': totals['tax'] or 0,
+        'total_deposit': totals['deposit'] or 0,
+        'quick_ranges': quick_ranges,
         'start_date': start_date,
         'end_date': end_date,
         'store_name': settings.STORE_NAME,
