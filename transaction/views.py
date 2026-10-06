@@ -208,6 +208,81 @@ def endTransaction(request,type,value):
         return redirect("register")
 
 
+from django.apps import apps
+from django.contrib.auth import get_user_model
+
+
+def sold_items_report(request):
+    """Line-items sold within a chosen date range (defaults to today).
+
+    Reuses the existing ``DateSelector`` widget so the filter looks the same
+    as the other report screens in the app.
+    """
+    today = datetime.now().date()
+    form = DateSelector(initial={'start_date': today, 'end_date': today})
+    if request.method == "POST" and form.is_valid():
+        start_date = form.cleaned_data['start_date']
+        end_date = form.cleaned_data['end_date']
+    else:
+        start_date = today
+        end_date = today
+
+    rows = list(productTransaction.objects
+        .filter(transaction_date_time__date__range=(start_date, end_date))
+        .select_related('transaction__user')
+        .order_by('-transaction_date_time')
+        .values(
+            'transaction_date_time', 'transaction_id', 'transaction_id_num',
+            'barcode', 'name', 'department', 'sales_price', 'qty',
+            'tax_category', 'tax_percentage', 'tax_amount',
+            'deposit_category', 'deposit', 'deposit_amount',
+            'payment_type', 'transaction__user_id', 'transaction__store_id',
+        )
+    )
+
+    for r in rows:
+        rid = r['transaction__store_id']
+        if rid is not None:
+            try:
+                r['transaction__store__name'] = Store.objects.values_list('store_name', flat=True).get(pk=rid)
+            except Exception:
+                r['transaction__store__name'] = None
+        else:
+            r['transaction__store__name'] = None
+
+    users = {u.id: u for u in get_user_model().objects.filter(
+        id__in={r['transaction__user_id'] for r in rows if r['transaction__user_id']})}
+
+    try:
+        Store = apps.get_model('stores', 'Store')
+    except LookupError:
+        Store = None
+
+    for r in rows:
+        rid = r.get('transaction__store_id')
+        if rid is not None and Store is not None:
+            try:
+                r['transaction__store__store_name'] = Store.objects.values_list('store_name', flat=True).get(pk=rid)
+            except Exception:
+                r['transaction__store__store_name'] = None
+        else:
+            r['transaction__store__store_name'] = None
+
+    context = {
+        'form': form,
+        'rows': rows,
+        'users': users,
+        'start_date': start_date,
+        'end_date': end_date,
+        'store_name': settings.STORE_NAME,
+        'currency': 'PKR',
+    }
+    return render(request, 'sold_items_report.html', context=context)
+
+
+
+
+
 def addTransaction(user,payment_type,total,cart,value,discount_percent=0,discount_amount=0.0,gross_total=None):
     transaction_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
     short_id = transaction_id[:14]

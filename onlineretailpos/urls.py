@@ -76,6 +76,7 @@ urlpatterns = [
         path('transaction/<transNo>/', transaction_views.transactionView , name='transactionView_id'),
         path('transaction_receipt/<transNo>/', transaction_views.transactionReceipt , name='transactionReceipt'),
         path('transaction_receipt/<transNo>/print/', transaction_views.transactionPrintReceipt , name='transactionPrintReceipt'),
+        path('sold-items/', transaction_views.sold_items_report , name='sold_items_report'),
 
         # Customer Screen URLs
         path("retail_display/",views.retail_display,name="retail_display"),
