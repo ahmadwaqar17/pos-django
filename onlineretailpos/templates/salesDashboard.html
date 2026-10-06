@@ -10,70 +10,178 @@ Sales Dashboard | Online Retail POS
 
 
 {% block content %}
-<div class="row col-lg-12">
-    <div class="col-lg-5" style="width:100%;">
-        <div class="fluid">
-            <div class="card border-left-success shadow-sm mb-3">
-                <div class="card-header">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-md font-weight-bold text-success text-uppercase mb-1"> Today's Sales </div>
-                            <div class="h3 mb-1 font-weight-bold text-gray-800" style="text-align:right">{{ today_total_sales|floatformat:2 }}</div>
-                        </div>    
-                        <div class="col-auto">
-                            <span class="text-gray-300" style="font-size:2rem;font-weight:700">₨</span>
-                        </div>
-                    </div>
+<style>
+    .sd-card { border: 0; border-radius: 1rem; box-shadow: 0 4px 20px rgba(31, 35, 64, .06); }
+    .sd-card .card-header { background: transparent; border-bottom: 1px solid #eef0f6; padding: 1rem 1.25rem; }
+    .sd-title { font-size: .8rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #9a9db8; margin: 0; }
+    .sd-hero {
+        border-radius: 1rem; color: #fff; padding: 1.5rem;
+        background: linear-gradient(135deg, #2b2f6b 0%, #4e5ae8 100%);
+        box-shadow: 0 12px 30px rgba(78, 90, 232, .3); height: 100%;
+    }
+    .sd-hero .label { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
+    .sd-hero .value { font-size: 2.4rem; font-weight: 900; line-height: 1.1; margin: .35rem 0 .5rem; }
+    .sd-hero .value small { font-size: 1rem; font-weight: 700; opacity: .7; }
+    .sd-chip { display: inline-flex; align-items: center; gap: .3rem; font-size: .78rem; font-weight: 800; padding: .2rem .6rem; border-radius: 999px; }
+    .sd-chip.up { background: rgba(18, 164, 106, .18); color: #12a46a; }
+    .sd-chip.down { background: rgba(224, 71, 91, .15); color: #e0475b; }
+    .sd-hero .sd-chip.up { background: rgba(255, 255, 255, .18); color: #9ff0c9; }
+    .sd-hero .sd-chip.down { background: rgba(255, 255, 255, .18); color: #ffb3bd; }
+    .sd-hero .sd-chip.flat { background: rgba(255, 255, 255, .15); color: #fff; }
+    .sd-mini { display: flex; gap: 1.5rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, .15); }
+    .sd-mini div span { display: block; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .65; }
+    .sd-mini div strong { font-size: 1.15rem; font-weight: 800; }
+    .sd-stat { padding: 1rem 1.15rem; display: flex; align-items: center; gap: .9rem; height: 100%; }
+    .sd-stat .icon { width: 2.6rem; height: 2.6rem; border-radius: .8rem; flex: none; display: flex; align-items: center; justify-content: center; background: #eef0fd; color: #4e5ae8; }
+    .sd-stat .label { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #9a9db8; }
+    .sd-stat .value { font-size: 1.2rem; font-weight: 800; color: #1f2340; white-space: nowrap; }
+    .sd-meta { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+    .sd-meta div span { display: block; font-size: .72rem; font-weight: 700; text-transform: uppercase; color: #9a9db8; letter-spacing: .05em; }
+    .sd-meta div strong { font-size: 1.05rem; color: #1f2340; }
+    .sd-legend { list-style: none; padding: 0; margin: 0; }
+    .sd-legend li { display: flex; align-items: center; gap: .6rem; padding: .45rem 0; border-bottom: 1px solid #f1f2f7; font-size: .9rem; }
+    .sd-legend li:last-child { border-bottom: 0; }
+    .sd-legend .dot { width: .7rem; height: .7rem; border-radius: 50%; flex: none; }
+    .sd-legend .amt { margin-left: auto; font-weight: 800; color: #1f2340; }
+    .sd-legend .pct { width: 3.2rem; text-align: right; color: #9a9db8; font-size: .8rem; }
+    .sd-empty { text-align: center; color: #9a9db8; padding: 2.5rem 1rem; }
+    .sd-empty i { font-size: 2rem; color: #d8dbe8; display: block; margin-bottom: .6rem; }
+    .sd-recent td { vertical-align: middle; border-top: 1px solid #f1f2f7; padding: .7rem 1.25rem; }
+    .sd-recent tr:first-child td { border-top: 0; }
+</style>
+
+<div class="container-fluid px-0">
+
+    <!-- Row 1: today + period stats -->
+    <div class="row">
+        <div class="col-xl-4 mb-4">
+            <div class="sd-hero">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="label">Today's sales</div>
+                    {% if today_change is None %}
+                        <span class="sd-chip flat">No sales yesterday</span>
+                    {% elif today_change >= 0 %}
+                        <span class="sd-chip up"><i class="fas fa-arrow-up"></i> {{ today_change }}% vs yesterday</span>
+                    {% else %}
+                        <span class="sd-chip down"><i class="fas fa-arrow-down"></i> {{ today_change|stringformat:"s"|slice:"1:" }}% vs yesterday</span>
+                    {% endif %}
                 </div>
-                <div class="card-body m-0 p-1">
-                    {{ day_payment_graph|safe}}
+                <div class="value"><small>Rs</small> {{ today_sales|floatformat:"2g" }}</div>
+                <div class="sd-mini">
+                    <div><span>Receipts</span><strong>{{ today_count }}</strong></div>
+                    <div><span>Avg sale</span><strong>Rs {{ today_avg|floatformat:"0g" }}</strong></div>
+                    <div><span>This week</span><strong>Rs {{ periods.2.1|floatformat:"0g" }}</strong></div>
                 </div>
             </div>
         </div>
-        <hr>
-        <div class="row col-lg-12 m-0 p-0" >
-            {% for key, value in add_info.items %}
-            <div class="col-lg-6 mb-2" style="height:85px;width:100%">
-                <div class="card border-left-info shadow-sm" style="width:100%;height:100%">
-                    <div class="card-body" style="width:100%">
-                        <div class="row no-gutters align-items-center">
-                            <div class="col mr-2">
-                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1"> {{ key}} </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">PKR {{ value|floatformat:2 }}</div>
-                            </div>    
-                            <div class="col-auto">
-                                <span class="text-gray-300" style="font-size:2rem;font-weight:700">₨</span>
+        <div class="col-xl-8">
+            <div class="row">
+                {% for label, value, icon in periods %}
+                <div class="col-md-4 col-6 mb-4">
+                    <div class="card sd-card h-100">
+                        <div class="sd-stat">
+                            <div class="icon"><i class="fas {{ icon }}"></i></div>
+                            <div class="min-w-0">
+                                <div class="label">{{ label }}</div>
+                                <div class="value">Rs {{ value|floatformat:"2g" }}</div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>  
-            {% endfor %}
+                {% endfor %}
+            </div>
         </div>
     </div>
-    <div class="col-lg-7" >
-        <!-- <div class="row">
-            <a class="col-lg-6 p-3" href="{% url 'dashboard_department' %}">
-                <button class="btn btn-primary btn-lg" style="width:100%;">
-                    Go to Department Dashboard
-                </button>
-            </a>
-            <a class="col-lg-6 p-3" href="{% url 'dashboard_department' %}">
-                <button class="btn btn-primary btn-lg" style="width:100%;">
-                    Go to Inventory Dashboard
-                </button>
-            </a>
-        </div> -->
-        <div class="card shadow">
-            <div class="card-header">
-                <div class="font-weight-bold text-primary h5 text-center"> Last 30-Days Sales Chart </div>
-                <div> Total Sales - PKR {{30_Days_Total_Sales|floatformat:2 }}  <br> Average - PKR {{ 30_Days_Avg_Sales|floatformat:2 }}</div> 
+
+    <!-- Row 2: 30-day chart -->
+    <div class="card sd-card mb-4">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center" style="gap:1rem">
+            <div>
+                <p class="sd-title">Last 30 days</p>
+                <div class="h5 m-0 font-weight-bold text-gray-800">Daily sales</div>
             </div>
-            <div class="card-body " >
-                {{ 30_day_sales_graph |safe}}
+            <div class="sd-meta">
+                <div><span>Total</span><strong>Rs {{ total_30|floatformat:"2g" }}</strong></div>
+                <div><span>Daily average</span><strong>Rs {{ avg_30|floatformat:"2g" }}</strong></div>
+                <div><span>Best day</span><strong>{% if best_day %}{{ best_day.0|date:"d M" }} · Rs {{ best_day.1|floatformat:"0g" }}{% else %}—{% endif %}</strong></div>
             </div>
+        </div>
+        <div class="card-body pt-3 pb-2">
+            {{ sales_30_graph|safe }}
+        </div>
+    </div>
+
+    <!-- Row 3: today detail -->
+    <div class="row">
+        <div class="col-xl-5 mb-4">
+            <div class="card sd-card h-100">
+                <div class="card-header"><p class="sd-title">Today · Payment mix</p></div>
+                <div class="card-body">
+                    {% if payment_mix %}
+                    <div class="row align-items-center">
+                        <div class="col-sm-6">{{ payment_graph|safe }}</div>
+                        <div class="col-sm-6">
+                            <ul class="sd-legend">
+                                {% for name, amount, pct, color in payment_mix %}
+                                <li>
+                                    <span class="dot" style="background:{{ color }}"></span>
+                                    <span class="text-gray-700 font-weight-bold">{{ name }}</span>
+                                    <span class="amt">Rs {{ amount|floatformat:"0g" }}</span>
+                                    <span class="pct">{{ pct|floatformat:0 }}%</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="sd-empty"><i class="fas fa-wallet"></i>No payments yet today</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-7 mb-4">
+            <div class="card sd-card h-100">
+                <div class="card-header"><p class="sd-title">Today · Sales by hour</p></div>
+                <div class="card-body pt-3 pb-2">
+                    {% if today_count %}
+                        {{ hourly_graph|safe }}
+                    {% else %}
+                        <div class="sd-empty"><i class="fas fa-clock"></i>Hourly sales will appear after the first sale</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 4: recent sales -->
+    <div class="card sd-card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <p class="sd-title">Recent sales</p>
+            <a href="{% url 'transactionView' %}" class="small font-weight-bold">View all <i class="fas fa-arrow-right ml-1"></i></a>
+        </div>
+        <div class="card-body p-0">
+            {% if recent %}
+            <div class="table-responsive">
+                <table class="table mb-0 sd-recent">
+                    <tbody>
+                    {% for t in recent %}
+                    <tr>
+                        <td style="width:1%"><div class="sd-stat p-0"><div class="icon" style="width:2.2rem;height:2.2rem"><i class="fas fa-receipt"></i></div></div></td>
+                        <td>
+                            <div class="font-weight-bold text-gray-800" style="font-family:monospace">{{ t.transaction_id|slice:":14" }}</div>
+                            <div class="small text-gray-500">{{ t.transaction_dt|date:"d M Y, h:i A" }} · {{ t.user__username }}</div>
+                        </td>
+                        <td><span class="badge {% if t.payment_type == 'CASH' %}badge-success{% else %}badge-info{% endif %} px-2">{{ t.payment_type }}</span></td>
+                        <td class="text-right font-weight-bold {% if t.total_sale < 0 %}text-danger{% else %}text-gray-800{% endif %}" style="white-space:nowrap">Rs {{ t.total_sale|floatformat:"2g" }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="sd-empty"><i class="fas fa-receipt"></i>No sales recorded yet</div>
+            {% endif %}
         </div>
     </div>
 </div>
-<hr>
 {% endblock %}

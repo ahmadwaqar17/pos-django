@@ -12,6 +12,7 @@ from transaction.views import DateSelector
 from plotly import express as px
 from plotly import offline as po
 import plotly.figure_factory as ff
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import pandas as pd
 import pytz, os
@@ -92,59 +93,50 @@ def api_products(request):
 
 
 
-def _display_images(only_media=False):
-    """List collected images4display/ assets from STATIC_ROOT (populated at
-    build time by collectstatic). Read-only: no runtime copying or writes."""
-    base = os.path.join(settings.STATIC_ROOT, "images4display")
-    if not os.path.isdir(base):
-        return []
-    names = os.listdir(base)
-    if only_media:
-        return [f"images4display/{n}" for n in names
-                if n.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif'))]
-    return [f"images4display/{n}" for n in names if not n.endswith('.md')]
-
-
 @login_required(login_url="/user/login/")
 def retail_display(request,values=None):
     if values:
+        # Same arithmetic as the register so the customer sees exactly what
+        # the cashier will charge: line totals include tax + deposit, and the
+        # receipt-level discount comes off the gross total.
         cart = request.session.get(settings.CART_SESSION_ID, {})
         items = []
+        gross_total = tax_total = deposit_total = 0.0
         for key, value in cart.items():
             try:
+                line_total = float(value['line_total'])
+                tax = float(value.get('tax_value', 0) or 0)
+                deposit = float(value.get('deposit_value', 0) or 0)
                 items.append({
                     'id': key,
                     'name': value['name'],
                     'qty': int(value['quantity']),
                     'price': float(value['price']),
+                    'line_total': line_total,
                 })
             except Exception:
                 continue
+            gross_total += line_total
+            tax_total += tax
+            deposit_total += deposit
 
-        img_list = _display_images(only_media=True)
-        promo_img = f"{settings.STATIC_URL}{img_list[0]}" if img_list else None
+        gross_total = round(gross_total, 2)
+        discount_percent = float(request.session.get("Discount_Percent", 0) or 0)
+        discount_amount = round(gross_total * discount_percent / 100, 2)
 
         return JsonResponse({
             'store': settings.STORE_NAME,
             'currency': 'PKR',
             'items': items,
-            'discount': 0,
-            'promo': {
-                'kicker': "Today at the counter",
-                'title': "Special Offers",
-                'price': "",
-                'was': "",
-                'flag': "OFFERS",
-                'terms': "Ask the cashier for today's deals.",
-                'image': promo_img,
-            },
+            'gross_total': gross_total,
+            'tax_total': round(tax_total, 2),
+            'deposit_total': round(deposit_total, 2),
+            'discount_percent': discount_percent,
+            'discount': discount_amount,
+            'total': round(gross_total - discount_amount, 2),
         })
 
-    # images4display/ is collected into STATIC_ROOT by collectstatic at build
-    # time (it is tracked in git, despite the .gitignore entry). No runtime
-    # disk writes here: serverless filesystems (Vercel) are read-only.
-    img_list = _display_images()
-    return render(request,'retailDisplay.html',context={"store_name":settings.STORE_NAME, "display_images":img_list})
+    return render(request,'retailDisplay.html',context={"store_name":settings.STORE_NAME})
 
 
 @login_required(login_url="/user/login/")
@@ -271,60 +263,131 @@ def dashboard_department(request):
     return render(request,"departmentDashboard.html",context=context)
 
 
+BRAND = "#4e5ae8"
+BRAND_SOFT = "rgba(78, 90, 232, .35)"
+MONEY = "#12a46a"
+CHART_FONT = dict(family="Nunito, sans-serif", size=12, color="#5f6383")
+PIE_COLORS = ["#4e5ae8", "#12a46a", "#f6c23e", "#36b9cc", "#e0475b"]
+
+
+def _plot_div(fig):
+    return po.plot(fig, auto_open=False, output_type='div',
+                   config={'displayModeBar': False, 'responsive': True}, include_plotlyjs=False)
+
+
+def _style(fig, height):
+    fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), font=CHART_FONT,
+                      plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                      hoverlabel=dict(bgcolor="#1f2340", font_color="#fff", bordercolor="#1f2340"),
+                      showlegend=False, bargap=0.25)
+    fig.update_xaxes(showgrid=False, title=None, linecolor="#e6e8f2")
+    fig.update_yaxes(gridcolor="#eef0f6", zeroline=False, title=None, tickprefix="Rs ", separatethousands=True)
+    return fig
+
+
+def _pct_change(now, before):
+    if not before:
+        return None
+    return round((now - before) / before * 100, 1)
+
+
 @login_required(login_url="/user/login/")
 def dashboard_sales(request):
-    context = {}
-    today_date =  datetime.combine(datetime.now().date(), datetime.min.time())
-    df = pd.DataFrame(transaction.objects.filter(transaction_dt__date__gte = datetime(today_date.year, 1,1)).values())
-    # No sales yet (fresh/read-only deployments): render the dashboard with
-    # zeroed stats and an empty chart instead of redirecting to the register.
+    today = datetime.now(timezone).date()
+    year_start = today.replace(month=1, day=1)
+    window_start = min(year_start, today - timedelta(days=29))
+
+    df = pd.DataFrame(transaction.objects
+        .filter(transaction_dt__date__gte=window_start - timedelta(days=7))
+        .values('transaction_id', 'transaction_dt', 'total_sale', 'payment_type', 'user__username'))
     if df.empty:
-        empty_fig = px.bar(pd.DataFrame({'Date': [], 'Total Sales': []}), x='Date', y='Total Sales', template="plotly_white")
-        empty_fig.update_xaxes(title="Days")
-        empty_fig.update_yaxes(title="Total Sales")
-        empty_fig.update_layout(margin = dict(b=10,pad=0,t=10,r=0,l=0), )
-        context['30_day_sales_graph'] = po.plot(empty_fig, auto_open=False, output_type='div',config= {'displayModeBar': False},include_plotlyjs=False)
-        context['day_payment_graph'] = ""
-        context['today_total_sales'] = 0
-        context['30_Days_Avg_Sales'] = 0
-        context['30_Days_Total_Sales'] = 0
-        context["add_info"] = {key: 0 for key in (
-            "Yesterday's Total Sales", "Last 7 Days Avg Sales", "WTD Total Sales",
-            "Last Week Total Sales", "MTD Total Sales", "YTD Total Sales")}
-        return render(request,"salesDashboard.html",context=context)
-
-    df['transaction_dt'] = df['transaction_dt'].apply(lambda x: x.astimezone(timezone) )
+        df = pd.DataFrame(columns=['transaction_id', 'transaction_dt', 'total_sale', 'payment_type', 'user__username'])
+    df['total_sale'] = df['total_sale'].astype(float)
+    df['transaction_dt'] = pd.to_datetime(df['transaction_dt'], utc=True).dt.tz_convert(timezone)
     df['date'] = df['transaction_dt'].dt.date
-    df_date = df.groupby('date')['total_sale'].sum()
-    df_date.index = pd.to_datetime(df_date.index)
-    if not df_date.get(datetime(today_date.year, 1,1)):df_date[datetime(today_date.year, 1,1)] = 0
-    if not df_date.get(today_date): df_date[today_date] = 0
-    df_date = df_date.asfreq('D',fill_value=0)
 
-    context['today_total_sales'] = df_date.get(today_date)
-    context["add_info"] = {}
-    context["add_info"]['Yesterday\'s Total Sales'] = df_date.get(today_date-timedelta(1))
-    context["add_info"]['Last 7 Days Avg Sales'] = df_date[df_date.index>today_date-timedelta(7)].sum()/7
-    context['30_Days_Avg_Sales'] = df_date[df_date.index>today_date-timedelta(30)].mean()
-    context['30_Days_Total_Sales'] = df_date[df_date.index>today_date-timedelta(30)].sum()
-    context["add_info"]['WTD Total Sales'] = df_date.resample('W').sum()[-1]
-    context["add_info"]['Last Week Total Sales'] = df_date.resample('W').sum()[-2]
-    context["add_info"]['MTD Total Sales'] = df_date.resample('M').sum()[-1]
-    context["add_info"]['YTD Total Sales'] = df_date.resample('Y').sum()[-1]
+    daily = df.groupby('date')['total_sale'].sum()
+    daily.index = pd.to_datetime(daily.index)
+    daily = daily.reindex(pd.date_range(window_start - timedelta(days=7), today, freq='D'), fill_value=0.0)
 
-    fig = px.bar(x= df_date.index,  y=df_date,text_auto=True,barmode='group',template="plotly_white" ,labels={"x":"Date","y":"Total Sales"})
-    fig.update_xaxes(title="Days", tickformat = '%a,%d/%m',tickangle=-90)
-    fig.update_yaxes(title="Total Sales")
-    fig.update_layout( margin = dict(b=10,pad=0,t=10,r=0,l=0), )
-    div = po.plot(fig, auto_open=False, output_type='div',config= {'displayModeBar': False},include_plotlyjs=False)
-    context['30_day_sales_graph'] = div
+    def total(start, end):
+        return float(daily[(daily.index.date >= start) & (daily.index.date <= end)].sum())
 
-    df_day_payment = df[df['date'] == today_date.date() ].groupby('payment_type')['total_sale'].sum().reset_index()
-    fig2 = px.pie(df_day_payment,values='total_sale',names='payment_type',template="plotly_white",height=195 ,
-        labels={"payment_type":"Payment Type","total_sale":"Total Sales"})
-    fig2.update_layout( margin = dict(b=10,pad=0,t=10), )
-    context['day_payment_graph'] = po.plot(fig2, auto_open=False, output_type='div',config= {'displayModeBar': False},include_plotlyjs=False)
-    return render(request,"salesDashboard.html",context=context)
+    week_start = today - timedelta(days=today.weekday())          # Monday
+    last_week_start = week_start - timedelta(days=7)
+    yesterday = today - timedelta(days=1)
+
+    today_df = df[df['date'] == today]
+    today_sales = float(today_df['total_sale'].sum())
+    today_count = int(len(today_df))
+    yesterday_sales = total(yesterday, yesterday)
+    # Same weekday-to-date comparison for week / month over the prior period.
+    wtd = total(week_start, today)
+    last_wtd = total(last_week_start, last_week_start + (today - week_start))
+
+    context = {
+        'today_sales': today_sales,
+        'today_count': today_count,
+        'today_avg': today_sales / today_count if today_count else 0,
+        'today_change': _pct_change(today_sales, yesterday_sales),
+        'periods': [
+            ("Yesterday", yesterday_sales, "fa-calendar-day"),
+            ("Last 7 days", total(today - timedelta(days=6), today), "fa-calendar-week"),
+            ("This week", wtd, "fa-chart-line"),
+            ("Last week", total(last_week_start, week_start - timedelta(days=1)), "fa-history"),
+            ("This month", total(today.replace(day=1), today), "fa-calendar-alt"),
+            ("This year", total(year_start, today), "fa-trophy"),
+        ],
+        'wtd_change': _pct_change(wtd, last_wtd),
+    }
+
+    # --- last 30 days -------------------------------------------------------
+    last30 = daily[daily.index.date > today - timedelta(days=30)]
+    context['total_30'] = float(last30.sum())
+    context['avg_30'] = float(last30.mean()) if len(last30) else 0
+    context['best_day'] = (last30.idxmax().date(), float(last30.max())) if last30.max() > 0 else None
+    colors = [MONEY if d.date() == today else BRAND for d in last30.index]
+    fig = go.Figure(go.Bar(
+        x=last30.index, y=last30.values, marker_color=colors, marker_line_width=0,
+        hovertemplate="<b>%{x|%a, %d %b}</b><br>Rs %{y:,.2f}<extra></extra>"))
+    if context['avg_30']:
+        fig.add_hline(y=context['avg_30'], line_dash="dot", line_color="#9a9db8", line_width=1,
+                      annotation_text=f"avg {context['avg_30']:,.0f}", annotation_position="top left",
+                      annotation_font=dict(size=11, color="#9a9db8"))
+    _style(fig, 330)
+    fig.update_xaxes(tickformat="%d %b", dtick=86400000 * 3)
+    context['sales_30_graph'] = _plot_div(fig)
+
+    # --- today: by hour + payment mix --------------------------------------
+    hours = list(range(24))
+    by_hour = today_df.groupby(today_df['transaction_dt'].dt.hour)['total_sale'].sum().reindex(hours, fill_value=0.0)
+    first = next((h for h in hours if by_hour[h] > 0), 9)
+    last = max([h for h in hours if by_hour[h] > 0] or [21])
+    shown = list(range(min(first, 9), max(last, 21) + 1))
+    fig_h = go.Figure(go.Bar(
+        x=[f"{h % 12 or 12} {'AM' if h < 12 else 'PM'}" for h in shown], y=[by_hour[h] for h in shown],
+        marker_color=BRAND, marker_line_width=0,
+        hovertemplate="<b>%{x}</b><br>Rs %{y:,.2f}<extra></extra>"))
+    _style(fig_h, 230)
+    context['hourly_graph'] = _plot_div(fig_h)
+
+    pay = today_df.groupby('payment_type')['total_sale'].sum()
+    context['payment_mix'] = [(k, float(v), float(v) / today_sales * 100 if today_sales else 0,
+                               PIE_COLORS[i % len(PIE_COLORS)]) for i, (k, v) in enumerate(pay.items())]
+    if len(pay):
+        fig_p = go.Figure(go.Pie(
+            labels=list(pay.index), values=list(pay.values), hole=.68, sort=False,
+            marker=dict(colors=PIE_COLORS[:len(pay)], line=dict(color="#fff", width=2)),
+            textinfo="none", hovertemplate="<b>%{label}</b><br>Rs %{value:,.2f} (%{percent})<extra></extra>"))
+        _style(fig_p, 200)
+        context['payment_graph'] = _plot_div(fig_p)
+
+    recent = df.sort_values('transaction_dt', ascending=False).head(6).to_dict('records')
+    for r in recent:
+        # naive local time so the template's |date doesn't re-convert it
+        r['transaction_dt'] = r['transaction_dt'].tz_localize(None).to_pydatetime()
+    context['recent'] = recent
+    return render(request, "salesDashboard.html", context=context)
 
 
 def user_login(request):

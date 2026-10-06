@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Responsive Test Harness</title>
+<style>
+  body { margin:0; font-family: system-ui, sans-serif; background:#0f172a; color:#e2e8f0; }
+  #bar { display:flex; gap:8px; align-items:center; padding:8px 12px; background:#1e293b; flex-wrap:wrap; }
+  button, select { background:#334155; color:#e2e8f0; border:1px solid #475569; border-radius:8px; padding:6px 10px; cursor:pointer; font-size:13px; }
+  button.active { background:#4f46e5; border-color:#4f46e5; }
+  #frameWrap { position:relative; width:100%; height:calc(100vh - 120px); overflow:auto; background:#0f172a; }
+  iframe { border:0; background:#fff; height:calc(100vh - 140px); }
+  #results { padding:8px 12px; font:12px/1.5 monospace; max-height:96px; overflow:auto; white-space:pre-wrap; }
+  .ok { color:#34d399; } .bad { color:#f87171; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>Route:</b>
+  <select id="route">
+    <option value="/user/login/">login</option>
+    <option value="/register/" selected>register</option>
+    <option value="/dashboard_sales/">sales dash</option>
+    <option value="/dashboard_department/">dept dash</option>
+    <option value="/dashboard_products/">products dash</option>
+    <option value="/transaction/">transactions</option>
+    <option value="/inventory/">add inventory</option>
+    <option value="/register/product_lookup/">price lookup</option>
+    <option value="/retail_display/">customer display</option>
+  </select>
+  <b>Width:</b>
+  <button data-w="375">375</button>
+  <button data-w="600">600</button>
+  <button data-w="768">768</button>
+  <button data-w="1024">1024</button>
+  <button data-w="1440" class="active">1440</button>
+  <button id="runall">▶ Run all routes × widths</button>
+  <span id="status"></span>
+</div>
+<div id="frameWrap"><iframe id="f" src="/register/"></iframe></div>
+<div id="results">Ready.</div>
+
+<script>
+const f = document.getElementById('f');
+const results = document.getElementById('results');
+const status = document.getElementById('status');
+
+function setWidth(w) {
+  f.style.width = w + 'px';
+  document.querySelectorAll('#bar button[data-w]').forEach(b =>
+    b.classList.toggle('active', +b.dataset.w === w));
+}
+function go(route) { f.src = route; }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function checkOverflow() {
+  try {
+    const doc = f.contentDocument;
+    if (!doc || !doc.documentElement) return { err: 'no doc' };
+    const d = doc.documentElement;
+    const over = d.scrollWidth - d.clientWidth;
+    if (over <= 2) return { over: 0, bad: [] };
+    const bad = [];
+    doc.querySelectorAll('body *').forEach(el => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 1 && (r.right > d.clientWidth + 4 || r.left < -4)) {
+        let p = el, scrollSafe = false;
+        while (p && p !== doc.body) {
+          const s = f.contentWindow.getComputedStyle(p);
+          if (/(auto|scroll)/.test(s.overflowX)) { scrollSafe = true; break; }
+          p = p.parentElement;
+        }
+        if (!scrollSafe && bad.length < 6) {
+          bad.push(el.tagName.toLowerCase() +
+            (el.id ? '#' + el.id : '') +
+            (el.classList.length ? '.' + el.classList[0] : ''));
+        }
+      }
+    });
+    return { over, bad };
+  } catch (e) { return { err: String(e) }; }
+}
+
+document.querySelectorAll('#bar button[data-w]').forEach(b =>
+  b.onclick = () => { setWidth(+b.dataset.w); });
+document.getElementById('route').onchange = e => go(e.target.value);
+
+document.getElementById('runall').onclick = async () => {
+  const routes = [...document.getElementById('route').options].map(o => o.value);
+  const widths = [375, 600, 768, 1024, 1440];
+  const report = [];
+  for (const route of routes) {
+    for (const w of widths) {
+      status.textContent = `testing ${route} @ ${w}px …`;
+      setWidth(w);
+      go(route);
+      await sleep(900);
+      const res = checkOverflow();
+      report.push({ route, w, ...res });
+      const line = res.err ? `ERR  ${route} @ ${w}: ${res.err}`
+        : res.over <= 2 ? `OK   ${route} @ ${w}`
+        : `BAD  ${route} @ ${w}  overflow=${res.over}px  <- ${res.bad.join(', ')}`;
+      results.innerHTML += `\n<span class="${res.over > 2 ? 'bad' : 'ok'}">${line}</span>`;
+      results.scrollTop = results.scrollHeight;
+    }
+  }
+  status.textContent = 'done';
+  results.innerHTML += '\n=== REPORT JSON (copy from console) ===';
+  console.log('RESPONSIVE_REPORT', JSON.stringify(report, null, 1));
+};
+setWidth(1440);
+</script>
+</body>
+</html>
