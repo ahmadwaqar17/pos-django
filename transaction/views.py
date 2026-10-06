@@ -212,6 +212,9 @@ def endTransaction(request,type,value):
 
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum
+from django.utils import timezone
+from io import BytesIO
+import csv
 
 
 @login_required(login_url="/user/login/")
@@ -263,6 +266,9 @@ def sold_items_report(request):
         discount=Sum('discount_amount'), tax=Sum('tax_total'),
         deposit=Sum('deposit_total'))
 
+    if request.GET.get('export') in ('csv', 'xlsx'):
+        return _export_sold_items(request.GET['export'], rows, totals, start_date, end_date)
+
     quick_ranges = [
         ('Today', today, today),
         ('Yesterday', today - timedelta(days=1), today - timedelta(days=1)),
@@ -283,10 +289,110 @@ def sold_items_report(request):
         'quick_ranges': quick_ranges,
         'start_date': start_date,
         'end_date': end_date,
+        'start_date_iso': start_date.isoformat(),
+        'end_date_iso': end_date.isoformat(),
         'store_name': settings.STORE_NAME,
         'currency': 'PKR',
     }
     return render(request, 'sold_items_report.html', context=context)
+
+
+EXPORT_COLUMNS = ['Date', 'Time', 'Receipt #', 'Barcode', 'Product', 'Department', 'Qty',
+                  'Unit Price', 'Line Total', 'Tax', 'Deposit', 'Payment', 'Cashier']
+MONEY_COLUMNS = {'Unit Price', 'Line Total', 'Tax', 'Deposit'}
+
+
+def _safe_text(value):
+    """Stop spreadsheet apps from treating user-entered text as a formula."""
+    value = '' if value is None else str(value)
+    return "'" + value if value[:1] in ('=', '+', '-', '@') else value
+
+
+def _export_sold_items(fmt, rows, totals, start_date, end_date):
+    """Sold Items report as a CSV or Excel download, built from the same rows
+    and receipt totals the page shows so the figures always match."""
+    data = []
+    for r in rows:
+        dt = timezone.localtime(r['transaction_date_time'])
+        data.append([
+            dt.date(), dt.strftime('%H:%M'), r['transaction_id_num'],
+            _safe_text(r['barcode']), _safe_text(r['name']), _safe_text(r['department']),
+            r['qty'] or 0, float(r['sales_price'] or 0), float(r['line_total'] or 0),
+            float(r['tax_amount'] or 0), float(r['deposit_amount'] or 0),
+            r['payment_type'], _safe_text(r['cashier']),
+        ])
+
+    discount = float(totals['discount'] or 0)
+    summary = [
+        ['Total', '', '', '', '', '', sum(r[6] for r in data), '', sum(r[8] for r in data),
+         sum(r[9] for r in data), sum(r[10] for r in data), '', ''],
+        ['Less: receipt discounts', '', '', '', '', '', '', '', -discount, '', '', '', ''],
+        ['Net revenue (incl. tax & deposit)', '', '', '', '', '', '', '', float(totals['revenue'] or 0),
+         '', '', '', ''],
+    ]
+    if not discount:
+        del summary[1]
+
+    period = f"{start_date:%Y-%m-%d}" + ('' if start_date == end_date else f"_{end_date:%Y-%m-%d}")
+    filename = f"sold-items_{period}.{fmt}"
+
+    if fmt == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.write('\ufeff')  # BOM so Excel reads UTF-8 correctly
+        writer = csv.writer(response)
+        writer.writerow(EXPORT_COLUMNS)
+        writer.writerows([[c.isoformat() if hasattr(c, 'isoformat') else c for c in row] for row in data])
+        writer.writerow([])
+        writer.writerows(summary)
+        return response
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Sold Items'
+    period_label = f"{start_date:%d %b %Y}" + ('' if start_date == end_date else f" – {end_date:%d %b %Y}")
+    ws.append([f"{settings.STORE_NAME} — Sold Items, {period_label}"])
+    ws['A1'].font = Font(bold=True, size=14)
+    ws.append([])
+    ws.append(EXPORT_COLUMNS)
+    header_row = ws.max_row
+    for cell in ws[header_row]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill('solid', fgColor='4E5AE8')
+        cell.alignment = Alignment(horizontal='center')
+    for row in data:
+        ws.append(row)
+    last_data_row = ws.max_row
+    ws.append([])
+    for row in summary:
+        ws.append(row)
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True)
+
+    for idx, name in enumerate(EXPORT_COLUMNS, start=1):
+        letter = get_column_letter(idx)
+        for (cell,) in ws.iter_rows(min_row=header_row + 1, min_col=idx, max_col=idx):
+            if name in MONEY_COLUMNS:
+                cell.number_format = '#,##0.00'
+            elif name == 'Date' and cell.row <= last_data_row:
+                cell.number_format = 'DD-MM-YYYY'
+        widths = {'Date': 12, 'Time': 8, 'Receipt #': 22, 'Product': 32, 'Department': 16, 'Qty': 7}
+        ws.column_dimensions[letter].width = widths.get(name, 14)
+
+    ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
+    if data:
+        ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(EXPORT_COLUMNS))}{last_data_row}"
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    response = HttpResponse(buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 def addTransaction(user,payment_type,total,cart,value,discount_percent=0,discount_amount=0.0,gross_total=None):

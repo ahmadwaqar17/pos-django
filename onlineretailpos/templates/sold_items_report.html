@@ -9,6 +9,26 @@
     <button type="button" class="btn btn-primary btn-sm shadow-sm d-print-none" onclick="window.print()">
         <i class="fas fa-print mr-1"></i> Print
     </button>
+    <div class="dropdown d-print-none ml-2 text-capitalize" style="font-size:1rem">
+        <button class="btn btn-success btn-sm shadow-sm dropdown-toggle" type="button" id="exportMenu"
+                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <i class="fas fa-file-export mr-1"></i> Export
+        </button>
+        <div class="dropdown-menu shadow animated--grow-in" aria-labelledby="exportMenu">
+            {% if rows %}
+            {% with qs="?start="|add:start_date_iso|add:"&end="|add:end_date_iso %}
+            <a class="dropdown-item" href="{{ qs }}&export=xlsx" download>
+                <i class="fas fa-file-excel fa-fw mr-2 text-success"></i> Excel (.xlsx)
+            </a>
+            <a class="dropdown-item" href="{{ qs }}&export=csv" download>
+                <i class="fas fa-file-csv fa-fw mr-2 text-primary"></i> CSV
+            </a>
+            {% endwith %}
+            {% else %}
+            <span class="dropdown-item-text small text-gray-500">Nothing to export for this period</span>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}
 
