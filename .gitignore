@@ -52,3 +52,7 @@ screenshots/
 
 # Compiled files
 *.pyc
+
+# Database backups (contain business data)
+*.dump
+*.sql.gz
