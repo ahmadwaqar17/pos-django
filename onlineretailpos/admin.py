@@ -14,18 +14,19 @@ class MyAdminSite(admin.AdminSite):
         from django.db.models import Count, Sum
         from django.utils import timezone
         from inventory.models import product
+        from stores import stock
         from transaction.models import transaction
 
         low = settings.LOW_STOCK_THRESHOLD
-        products = product.objects.all()
+        products = stock.with_stock(product.objects.all(), None, name="total_stock")
         today = transaction.objects.filter(transaction_dt__date=timezone.localdate()).aggregate(
             receipts=Count("id"), sales=Sum("total_sale"))
         extra_context = {
             **(extra_context or {}),
             "pos_stats": {
                 "products": products.count(),
-                "low_stock": products.filter(qty__gt=0, qty__lte=low).count(),
-                "out_of_stock": products.filter(qty__lte=0).count(),
+                "low_stock": products.filter(total_stock__gt=0, total_stock__lte=low).count(),
+                "out_of_stock": products.filter(total_stock__lte=0).count(),
                 "no_cost": products.filter(cost_price__lte=0).count(),
                 "today_sales": today["sales"] or 0,
                 "today_receipts": today["receipts"] or 0,

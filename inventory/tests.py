@@ -9,7 +9,15 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
+from stores import stock
+from stores.models import StockMovement, Store
+
 from .models import deposit, department, product, tax
+
+
+def wh_qty(barcode):
+    """Stock of a product in the warehouse (where uploads go by default)."""
+    return stock.branch_qty(Store.warehouse(), product.objects.get(barcode=barcode))
 
 STOCK_UPLOAD_URL_NAME = "admin:inventory_product_stock_upload"
 
@@ -90,7 +98,8 @@ class StockImportTests(TestCase):
         self.assertEqual(product.objects.count(), 3)
         p = product.objects.get(barcode="ME1001-OOS")
         self.assertEqual(p.name, "ME1001 — Small")
-        self.assertEqual(p.qty, 3)
+        self.assertEqual(wh_qty("ME1001-OOS"), 3)
+        self.assertEqual(StockMovement.objects.filter(kind=StockMovement.RECEIVE).count(), 3)
         self.assertEqual(p.department.department_name, "Clothing")
         self.assertEqual(p.tax_category.tax_percentage, Decimal("0.000"))
         self.assertEqual(p.deposit_category.deposit_value, Decimal("0.00"))
@@ -125,14 +134,14 @@ class StockImportTests(TestCase):
         rows = [["1", "ME1001", "ME1001-OOS", "Small", "2", "1999.50", "1200"]]
         self.client.post(self.url, {"stock_file": stock_file(rows)})
         p = product.objects.get(barcode="ME1001-OOS")
-        self.assertEqual(p.qty, 5)                      # 3 + 2
+        self.assertEqual(wh_qty("ME1001-OOS"), 5)       # 3 + 2
         self.assertEqual(p.sales_price, Decimal("1999.50"))
         self.assertEqual(p.cost_price, Decimal("1200.00"))
         # Re-upload without price columns keeps the new prices.
         rows2 = [["1", "ME1001", "ME1001-OOS", "Small", "1"]]
         self.client.post(self.url, {"stock_file": stock_file(rows2)})
         p = product.objects.get(barcode="ME1001-OOS")
-        self.assertEqual(p.qty, 6)
+        self.assertEqual(wh_qty("ME1001-OOS"), 6)
         self.assertEqual(p.sales_price, Decimal("1999.50"))
 
     def test_non_numeric_price_aborts_everything(self):
@@ -144,8 +153,8 @@ class StockImportTests(TestCase):
         self.client.post(self.url, {"stock_file": stock_file(self._rows())})
 
         self.assertEqual(product.objects.count(), 3)  # no duplicates
-        self.assertEqual(product.objects.get(barcode="ME1001-OOS").qty, 6)
-        self.assertEqual(product.objects.get(barcode="ME1002-OOS").qty, 8)
+        self.assertEqual(wh_qty("ME1001-OOS"), 6)
+        self.assertEqual(wh_qty("ME1002-OOS"), 8)
 
     def test_existing_product_other_fields_are_untouched(self):
         clothing = department.objects.create(
@@ -160,12 +169,13 @@ class StockImportTests(TestCase):
         product.objects.create(
             barcode="ME1001-OOS", name="Hand-named", department=clothing,
             sales_price=Decimal("1499.00"), cost_price=Decimal("900.00"),
-            qty=5, tax_category=zero_tax, deposit_category=no_dep,
+            tax_category=zero_tax, deposit_category=no_dep,
         )
+        stock.adjust(Store.warehouse(), product.objects.get(barcode="ME1001-OOS"), 5, StockMovement.RECEIVE)
         self.client.post(self.url, {"stock_file": stock_file(self._rows())})
 
         p = product.objects.get(barcode="ME1001-OOS")
-        self.assertEqual(p.qty, 8)            # 5 + 3
+        self.assertEqual(wh_qty("ME1001-OOS"), 8)  # 5 + 3
         self.assertEqual(p.name, "Hand-named")
         self.assertEqual(p.sales_price, Decimal("1499.00"))
 
@@ -221,3 +231,10 @@ class StockImportTests(TestCase):
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Stock file")
+
+    def test_upload_into_chosen_branch(self):
+        shop = Store.objects.filter(is_warehouse=False).first()
+        self.client.post(self.url, {"stock_file": stock_file(self._rows()), "store": shop.pk})
+        p = product.objects.get(barcode="ME1001-OOS")
+        self.assertEqual(stock.branch_qty(shop, p), 3)
+        self.assertEqual(wh_qty("ME1001-OOS"), 0)

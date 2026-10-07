@@ -5,6 +5,9 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django import forms
 from django.db.models import Q
+from django.contrib import messages
+from stores import stock
+from stores.access import can_manage_stock, manager_required, scope_sales
 from django.utils.http import url_has_allowed_host_and_scheme
 from cart.models import Cart, displayed_items
 from inventory.models import product, department
@@ -28,6 +31,9 @@ class EnterBarcode(forms.Form):
 
 @login_required(login_url="/user/login/")
 def register(request):
+    if request.store is None or request.store.is_warehouse:
+        messages.info(request, "The warehouse doesn't sell. Switch to a shop to use the register.")
+        return redirect('stock_levels')
     form = EnterBarcode(initial={'qty':1})
     if request.method == "POST":
         form = EnterBarcode(request.POST)
@@ -45,7 +51,7 @@ def register(request):
     discount_amount = round(gross_total * discount_percent / 100, 2)
     Total = round(gross_total - discount_amount, 2)
 
-    all_products = product.objects.select_related('department').all()
+    all_products = stock.with_stock(product.objects.select_related('department').all(), request.store)
     departments = department.objects.all()
 
     context = {
@@ -71,7 +77,7 @@ def register(request):
 def api_products(request):
     q = request.GET.get('q', '').strip()
     dept_id = request.GET.get('department', '').strip()
-    products_qs = product.objects.select_related('department').all()
+    products_qs = stock.with_stock(product.objects.select_related('department').all(), request.store)
     if q:
         products_qs = products_qs.filter(
             Q(barcode__icontains=q) | Q(name__icontains=q) | Q(product_desc__icontains=q)
@@ -126,7 +132,7 @@ def retail_display(request,values=None):
         discount_amount = round(gross_total * discount_percent / 100, 2)
 
         return JsonResponse({
-            'store': settings.STORE_NAME,
+            'store': request.store.name if request.store else settings.STORE_NAME,
             'currency': 'PKR',
             'items': items,
             'gross_total': gross_total,
@@ -137,15 +143,16 @@ def retail_display(request,values=None):
             'total': round(gross_total - discount_amount, 2),
         })
 
-    return render(request,'retailDisplay.html',context={"store_name":settings.STORE_NAME})
+    return render(request,'retailDisplay.html',context={"store_name": request.store.name if request.store else settings.STORE_NAME})
 
 
 @login_required(login_url="/user/login/")
+@manager_required
 def report_regular(request,start_date,end_date):
     # timezone.localize(datetime.combine(datetime.strptime(start_date,"%Y-%m-%d").date(), datetime.min.time()))
     start_date = datetime.strptime(start_date,"%Y-%m-%d").date()
     end_date = datetime.strptime(end_date,"%Y-%m-%d").date()
-    df = pd.DataFrame(productTransaction.objects.filter(transaction_date_time__date__range = (start_date,end_date)).order_by('-transaction_date_time').values())
+    df = pd.DataFrame(scope_sales(productTransaction.objects, request).filter(transaction_date_time__date__range = (start_date,end_date)).order_by('-transaction_date_time').values())
     if not df.shape[0]:
         # No sales in the period: show the report page with a note rather
         # than silently bouncing to the home dashboard.
@@ -186,12 +193,13 @@ def report_regular(request,start_date,end_date):
 
 
 @login_required(login_url="/user/login/")
+@manager_required
 def dashboard_products(request):
     context = {}
     number = 10
     today_date=datetime.now().date()
     last_30_date = datetime.now().date() - timedelta(30)
-    df = pd.DataFrame(productTransaction.objects.filter(transaction_date_time__date__range = (last_30_date,today_date)).order_by('-transaction_date_time').values())
+    df = pd.DataFrame(scope_sales(productTransaction.objects, request).filter(transaction_date_time__date__range = (last_30_date,today_date)).order_by('-transaction_date_time').values())
     # Empty when no sales yet (e.g. fresh deployments): show an empty
     # top-sellers section instead of bouncing the user back to the register.
     context['products_group'] = {}
@@ -199,12 +207,14 @@ def dashboard_products(request):
         for dept, dept_df in df.groupby('department'):
             context['products_group'][dept] = dept_df.groupby(["barcode","name"])[["qty"]].sum().reset_index().sort_values(by=["qty"],ascending=False).iloc[:number].to_dict('records')
 
-    context['low_inventory_products'] = product.objects.all().order_by('qty').values('barcode','name','qty')[:50]
+    low_store = None if (request.all_branches and request.is_owner) else request.store
+    context['low_inventory_products'] = stock.with_stock(product.objects.all(), low_store).order_by('qty').values('barcode','name','qty')[:50]
     context['number'] = number
     return render(request,"productsDashboard.html",context=context)
 
 
 @login_required(login_url="/user/login/")
+@manager_required
 def dashboard_department(request):
     context ={}
     end_date=datetime.now().date()
@@ -215,7 +225,7 @@ def dashboard_department(request):
         if form.is_valid():
             end_date= form.cleaned_data['end_date']
             start_date= form.cleaned_data['start_date']
-    df = pd.DataFrame(productTransaction.objects.filter(transaction_date_time__date__range = (start_date,end_date)).order_by('-transaction_date_time').values())
+    df = pd.DataFrame(scope_sales(productTransaction.objects, request).filter(transaction_date_time__date__range = (start_date,end_date)).order_by('-transaction_date_time').values())
     if df.shape[0]:
         df['total_sales'] = (df['qty'] * df['sales_price']) + df['tax_amount'] + df['deposit_amount']
         df['total_pre_sales'] = df['qty'] * df['sales_price']
@@ -293,12 +303,21 @@ def _pct_change(now, before):
 
 
 @login_required(login_url="/user/login/")
+def home(request):
+    """Managers/owners land on the sales dashboard, cashiers on the register."""
+    if can_manage_stock(request):
+        return dashboard_sales(request)
+    return redirect('register')
+
+
+@login_required(login_url="/user/login/")
+@manager_required
 def dashboard_sales(request):
     today = datetime.now(timezone).date()
     year_start = today.replace(month=1, day=1)
     window_start = min(year_start, today - timedelta(days=29))
 
-    df = pd.DataFrame(transaction.objects
+    df = pd.DataFrame(scope_sales(transaction.objects, request)
         .filter(transaction_dt__date__gte=window_start - timedelta(days=7))
         .values('transaction_id', 'transaction_dt', 'total_sale', 'payment_type', 'user__username'))
     if df.empty:

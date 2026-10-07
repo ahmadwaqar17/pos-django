@@ -6,16 +6,25 @@ from django.test import TestCase
 from django.urls import reverse
 
 from inventory.models import deposit, department, product, tax
+from stores.models import Store, StoreMembership
 from transaction.models import transaction
+
+
+def shop():
+    return Store.objects.filter(is_warehouse=False).first()
+
+
+def make_cashier(username, store=None):
+    user = get_user_model().objects.create_user(username=username, password="pw-12345")
+    StoreMembership.objects.create(user=user, role=StoreMembership.ROLE_CASHIER, store=store or shop())
+    return user
 
 
 class DiscountFlowTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.cashier = get_user_model().objects.create_user(
-            username="cash", password="pw-12345"
-        )
+        cls.cashier = make_cashier("cash")
         dept = department.objects.create(
             department_name="Clothing", department_desc="d"
         )
@@ -23,7 +32,7 @@ class DiscountFlowTests(TestCase):
         nd = deposit.objects.create(deposit_category="No Deposit", deposit_value=Decimal("0.00"))
         product.objects.create(
             barcode="TEST-1", name="Test Tee", department=dept,
-            sales_price=Decimal("100.00"), qty=50,
+            sales_price=Decimal("100.00"),
             tax_category=zx, deposit_category=nd,
         )
 
@@ -112,9 +121,13 @@ class CartRemoveTests(TestCase):
         nd = deposit.objects.create(deposit_category="No Deposit", deposit_value=Decimal("0.00"))
         product.objects.create(
             barcode="LCR-1", name="Line-Clear Test", department=dept,
-            sales_price=Decimal("200.00"), qty=999, tax_category=zx, deposit_category=nd,
+            sales_price=Decimal("200.00"), tax_category=zx, deposit_category=nd,
         )
-        get_user_model().objects.create_user(username="rmadmin", password="pw-12345")
+        product.objects.create(
+            barcode="TEST-1", name="Test Tee", department=dept,
+            sales_price=Decimal("100.00"), tax_category=zx, deposit_category=nd,
+        )
+        make_cashier("rmadmin")
 
     def setUp(self):
         self.client.force_login(get_user_model().objects.get(username="rmadmin"))
@@ -124,8 +137,8 @@ class CartRemoveTests(TestCase):
     def test_remove_line_clears_that_line_only(self):
         response = self.client.get("/cart/remove/LCR-1/")
         self.assertEqual(response.status_code, 302)
-        register_response = self.client.get("/register/")
-        cart_data = register_response.context["cart"].cart
+        self.assertEqual(self.client.get("/register/").status_code, 200)
+        cart_data = self.client.session["cart"]
         self.assertNotIn("LCR-1", cart_data)
         self.assertIn("TEST-1", cart_data)
 
@@ -140,17 +153,10 @@ class CartRemoveTests(TestCase):
         self.assertAlmostEqual(float(after_total), 100.00, places=2)
         self.assertLess(after_total, before_total)
 
-    def test_remove_line_clears_that_line_only(self):
-        response = self.client.get("/cart/remove/LCR-1/")
-        self.assertEqual(response.status_code, 302)
-        cart_data = self.client.get("/register/").context["cart"].cart
-        self.assertNotIn("LCR-1", cart_data)
-        self.assertIn("TEST-1", cart_data)
-
     def test_remove_nonexistent_barcode_is_noop(self):
         response = self.client.get("/cart/remove/DOES-NOT-EXIST-9999/")
         self.assertEqual(response.status_code, 302)
-        cart = self.client.get("/register/").context["cart"]
+        cart = self.client.session["cart"]
         self.assertIn("LCR-1", cart)
         self.assertIn("TEST-1", cart)
 

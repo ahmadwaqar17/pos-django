@@ -10,7 +10,6 @@ class product(models.Model):
     barcode          = models.CharField(unique=True,max_length=16,blank = False,null=False)
     name             = models.CharField(max_length=125, blank = False, null = False)
     sales_price      = models.DecimalField(max_digits=7,decimal_places=2,null=False,blank = False)
-    qty              = models.IntegerField(default=0,null=False)
     cost_price       = models.DecimalField(max_digits=7,decimal_places=2,default=0,null=False)
     tax_category     = models.ForeignKey("tax",on_delete=models.RESTRICT,null=False,blank=False)
     deposit_category = models.ForeignKey("deposit",on_delete=models.RESTRICT,null=False,blank=False)
@@ -33,7 +32,6 @@ class product(models.Model):
         return [
             ("Barcode", self.barcode),
             ("Name", self.name),
-            ("Inventory Qty",self.qty),
             ("Sales Price", self.sales_price),
             ("Cost Price",self.cost_price),
             ("Department Category",self.department.department_name),

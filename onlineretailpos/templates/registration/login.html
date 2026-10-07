@@ -144,6 +144,9 @@
             <h2>Welcome back</h2>
             <p class="lead">Sign in to continue to your register.</p>
 
+            {% for m in messages %}
+            <div class="alert err" role="alert"><i class="fas fa-info-circle"></i> {{ m }}</div>
+            {% endfor %}
             {% if logout %}
             <div class="alert ok" role="status"><i class="fas fa-check-circle"></i> You've been signed out.</div>
             {% endif %}

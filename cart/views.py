@@ -3,6 +3,8 @@ from django.shortcuts import redirect
 from inventory.models import product as Product
 from django.contrib.auth.decorators import login_required
 from .models import Cart
+from django.contrib import messages
+from stores import stock
 
 
 @login_required(login_url="/user/login")
@@ -19,6 +21,13 @@ def cart_add(request,id,qty):
 
     if product:
         cart.add(product=product,quantity=int(qty))
+        # Warn but allow: a wrong stock count must never block a sale.
+        in_cart = cart.cart.get(product.barcode, {}).get('quantity', 0)
+        on_hand = stock.branch_qty(request.store, product)
+        if in_cart > on_hand:
+            branch = request.store.name if request.store else "this branch"
+            messages.warning(request, f"Low stock: {product.name} — {in_cart} in cart, "
+                                      f"only {max(on_hand, 0)} on hand at {branch}.")
         return redirect('register')
     else:
         scheme = request.is_secure() and "https" or "http"

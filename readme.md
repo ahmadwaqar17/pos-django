@@ -126,8 +126,6 @@ The Online Retail POS System is a web-based application developed with Django, d
     - If accesing POS from Tablet with django server running on rasp-pi or a server, you will connect second monitor to Tablet for this functionality
     - If accesing POS from Window touch tablet/pc with django runnnig locally on same machine, connect second display here for this funcitonality
     <br>
-  - **Folder: images4display**   
-    In customer display there is slideshow of images, which can be used to put promotion/prices. Project uses directory images4display to slideshow phots from that directory, all photos in directory will be used. Only add photos in directory otherwise it will run into erro. More [info](/images4display/readme.md)
 
 
 <br>
@@ -206,7 +204,6 @@ The Online Retail POS System is a web-based application developed with Django, d
 - Multi-device access on the same network using IP address
 - Can set-up as live web app, however will have to configure accodingly. Some funcitonality may not work on prod web app.
 - Run locally on touch screen device for best functionality
-- Can have set up as-display images on customer facing screen, manage images4display folder in base dir of project.
 
 
 <br>

@@ -30,6 +30,7 @@ Transactions | {{ brand_name }}
                             <th>Total Sale</th>
                             <th>Payment Type</th>
                             <th>Date & Time</th>
+                            {% if all_branches and is_owner %}<th>Branch</th>{% endif %}
                             <th>Receipt</th>
                         </tr>
                     </thead>
@@ -40,6 +41,7 @@ Transactions | {{ brand_name }}
                             <td>{{ i.total_sale }}</td>
                             <td>{{ i.payment_type }}</td>
                             <td>{{ i.transaction_dt|date:"D\, M d, Y h:i A" }}</td>
+                            {% if all_branches and is_owner %}<td>{{ i.store__name }}</td>{% endif %}
                             <td><a href="{% url 'transactionReceipt' transNo=i.transaction_id %}" target="_self" >View Receipt</a></td>
                         </tr>
                         {% endfor %}

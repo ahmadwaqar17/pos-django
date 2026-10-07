@@ -27,6 +27,8 @@ from xml.etree import ElementTree as ET
 from django.db import transaction as db_transaction
 
 from .models import deposit, department, product, tax
+from stores import stock
+from stores.models import StockMovement, Store
 
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 
@@ -146,9 +148,11 @@ def parse_xlsx_rows(file_obj):
     return rows
 
 
-def import_stock(file_obj):
+def import_stock(file_obj, store=None, user=None):
     """Validate + import the whole file atomically.
 
+    Quantities are received into ``store`` (default: the warehouse) and each
+    one is logged as a RECEIVE stock movement.
     Returns (created_count, updated_count) on success.
     Raises ImportCancelled with a user-facing message on any invalid row —
     nothing is written to the database in that case.
@@ -206,6 +210,10 @@ def import_stock(file_obj):
     if not cleaned:
         raise ImportCancelled("Import aborted — the sheet has no data rows.")
 
+    store = store or Store.warehouse() or Store.objects.filter(is_active=True).first()
+    if store is None:
+        raise ImportCancelled("Import aborted — create a branch or warehouse first.")
+
     # ---- write (single transaction) ------------------------------------
     with db_transaction.atomic():
         clothing = department.objects.get_or_create(
@@ -230,7 +238,6 @@ def import_stock(file_obj):
                 "department": clothing,
                 "tax_category": zero_tax,
                 "deposit_category": no_deposit,
-                "qty": item["qty"],
                 "sales_price": (item["sales_price"]
                                 if item["sales_price"] is not None
                                 else Decimal("0.00")),
@@ -244,14 +251,18 @@ def import_stock(file_obj):
             if was_created:
                 created += 1
             else:
-                # "Add stock": top up quantity. Prices are only touched when
-                # the sheet provides them (empty cell = leave as-is).
-                updates = {"qty": obj.qty + item["qty"]}
+                # Prices are only touched when the sheet provides them
+                # (empty cell = leave as-is).
+                updates = {}
                 if item["sales_price"] is not None:
                     updates["sales_price"] = item["sales_price"]
                 if item["cost_price"] is not None:
                     updates["cost_price"] = item["cost_price"]
-                product.objects.filter(pk=obj.pk).update(**updates)
+                if updates:
+                    product.objects.filter(pk=obj.pk).update(**updates)
                 updated += 1
+            # "Add stock": the sheet quantity is received into the branch.
+            stock.adjust(store, obj, item["qty"], StockMovement.RECEIVE, user=user,
+                         note="Excel stock upload")
 
     return created, updated

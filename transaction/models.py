@@ -1,7 +1,6 @@
 # from itertools import product
-from django.db import models
+from django.db import models, transaction as db_transaction
 from django.conf import settings
-from django.db.models import F
 from inventory.models import product, PERCENTAGE_VALIDATOR
 import pytz
 timezone = pytz.timezone("US/Eastern")
@@ -12,6 +11,7 @@ class transaction(models.Model):
     date_time       = models.DateTimeField(auto_now_add=True)
     transaction_dt  = models.DateTimeField(editable=False, null=False, blank=False,)
     user            = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.RESTRICT, null=False, blank=False,editable=False,)
+    store           = models.ForeignKey("stores.Store", on_delete=models.PROTECT, related_name="sales", editable=False)
     transaction_id  = models.CharField(unique=True, max_length=50, editable=False,null=False)
     total_sale      = models.DecimalField(max_digits=7,decimal_places=2,null=False,editable=False)
     sub_total       = models.DecimalField(max_digits=7,decimal_places=2,null=False,editable=False)
@@ -27,16 +27,30 @@ class transaction(models.Model):
         return self.transaction_id
 
     def save(self,*args,**kwargs):
-        self.transaction_dt = timezone.localize(self.transaction_dt)
-        super().save(*args, **kwargs)
-        for product_item in eval(self.products):
-            try: item = product.objects.get(barcode = product_item['barcode'])
-            except: item = product.objects.get(barcode = product_item['barcode'].split("_")[0])
-            productTransaction.objects.create(transaction = self, transaction_id_num = self.transaction_id, transaction_date_time = self.transaction_dt,
-                barcode = product_item['barcode'], name = product_item['name'], department = item.department.department_name, sales_price= product_item['price'],
-                qty = product_item['quantity'], cost_price = item.cost_price, tax_category = item.tax_category.tax_category,tax_percentage= item.tax_category.tax_percentage ,
-                tax_amount = product_item['tax_value'], deposit_category = item.deposit_category.deposit_category,deposit = item.deposit_category.deposit_value ,
-                deposit_amount = product_item['deposit_value'], payment_type= self.payment_type )
+        # Imported here: stores.stock imports models that reference this one.
+        from stores import stock
+        from stores.models import StockMovement
+
+        creating = self._state.adding
+        if creating:
+            self.transaction_dt = timezone.localize(self.transaction_dt)
+        with db_transaction.atomic():
+            super().save(*args, **kwargs)
+            if not creating:
+                return self
+            for product_item in eval(self.products):
+                try: item = product.objects.get(barcode = product_item['barcode'])
+                except: item = product.objects.get(barcode = product_item['barcode'].split("_")[0])
+                line = productTransaction.objects.create(transaction = self, store = self.store, transaction_id_num = self.transaction_id, transaction_date_time = self.transaction_dt,
+                    barcode = product_item['barcode'], name = product_item['name'], department = item.department.department_name, sales_price= product_item['price'],
+                    qty = product_item['quantity'], cost_price = item.cost_price, tax_category = item.tax_category.tax_category,tax_percentage= item.tax_category.tax_percentage ,
+                    tax_amount = product_item['tax_value'], deposit_category = item.deposit_category.deposit_category,deposit = item.deposit_category.deposit_value ,
+                    deposit_amount = product_item['deposit_value'], payment_type= self.payment_type )
+                # Variable-price items (barcode "<dept>_<amount>") are not stocked.
+                if item.barcode == line.barcode and line.qty:
+                    stock.adjust(self.store, item, -line.qty,
+                                 StockMovement.RETURN if line.qty < 0 else StockMovement.SALE,
+                                 user=self.user, sale=self)
         return self
 
     class Meta:
@@ -45,6 +59,7 @@ class transaction(models.Model):
 
 class productTransaction(models.Model):
     transaction             = models.ForeignKey("transaction", on_delete=models.RESTRICT, null=False, blank=False,editable=False,)
+    store                   = models.ForeignKey("stores.Store", on_delete=models.PROTECT, related_name="sale_lines", editable=False)
     transaction_id_num      = models.CharField(max_length=50, editable=False,null=False)
     transaction_date_time   = models.DateTimeField(editable=False, null=False, blank=False,)
     barcode                 = models.CharField(max_length=32, editable=False, blank = False, null=False)
@@ -61,11 +76,6 @@ class productTransaction(models.Model):
     deposit_amount          = models.DecimalField(max_digits=7,decimal_places=2,editable=False, default=0,null=True)
     payment_type            = models.CharField(max_length=32, null=False,editable=False)
 
-    def save(self,*args,**kwargs):
-        if product.objects.filter(barcode=self.barcode).exists():
-            product.objects.filter(barcode=self.barcode).update(qty= F('qty')-self.qty)
-        return super().save(*args, **kwargs)
-    
     def __str__(self) -> str:
         return self.transaction_id_num + "_"+ self.barcode
 

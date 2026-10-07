@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock Levels | {{ brand_name }}{% endblock %}
+
+{% block nav-item %}
+<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3">Stock Levels</div>
+{% endblock %}
+
+{% block content %}
+{% include "stores/_styles.html" %}
+
+<div class="row">
+    {% for c in store_cards %}
+    <div class="col-xl-3 col-md-4 col-6 mb-4">
+        <div class="card st-card h-100">
+            <div class="st-store-card {% if c.store.is_warehouse %}is-wh{% endif %}">
+                <div class="icon"><i class="fas {% if c.store.is_warehouse %}fa-warehouse{% else %}fa-store{% endif %}"></i></div>
+                <div>
+                    <div class="label">{{ c.store.name }}{% if c.store == active_store %} · you{% endif %}</div>
+                    <div class="value">{{ c.units }} <small class="text-muted" style="font-size:.8rem;font-weight:600">units · {{ c.skus }} items</small></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card st-card mb-4">
+    <div class="card-body py-3">
+        <form method="get" class="st-filter d-flex flex-wrap align-items-center" style="gap:.6rem">
+            <div class="input-group" style="max-width:380px">
+                <div class="input-group-prepend"><span class="input-group-text bg-white"><i class="fas fa-search text-gray-400"></i></span></div>
+                <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search name, barcode or department">
+            </div>
+            <select name="status" class="form-control" style="max-width:200px" onchange="this.form.submit()">
+                <option value="" {% if not status %}selected{% endif %}>All products</option>
+                <option value="low" {% if status == 'low' %}selected{% endif %}>Low stock (≤ {{ low }} total)</option>
+                <option value="out" {% if status == 'out' %}selected{% endif %}>Out of stock</option>
+                <option value="negative" {% if status == 'negative' %}selected{% endif %}>Negative at a branch</option>
+            </select>
+            <button class="btn btn-primary"><i class="fas fa-filter mr-1"></i> Apply</button>
+            <div class="ml-auto d-flex" style="gap:.5rem">
+                <a href="{% url 'inventory_add' %}" class="btn btn-light border"><i class="fas fa-dolly mr-1"></i> Receive stock</a>
+                <a href="{% url 'transfer_new' %}" class="btn btn-success"><i class="fas fa-exchange-alt mr-1"></i> New transfer</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card st-card mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <p class="st-title">On hand by location</p>
+        <span class="small text-muted">{{ page.paginator.count }} product{{ page.paginator.count|pluralize }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if rows %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 st-table">
+                <thead>
+                <tr>
+                    <th class="pl-4">Product</th>
+                    {% for s in stores %}
+                    <th class="st-num">{% if s.is_warehouse %}<i class="fas fa-warehouse mr-1"></i>{% endif %}{{ s.name }}</th>
+                    {% endfor %}
+                    <th class="st-num">Total</th>
+                    <th class="pr-4">Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td class="pl-4">
+                        <div class="st-name">{{ r.product.name }}</div>
+                        <div class="st-code">{{ r.product.barcode }} · {{ r.product.department.department_name }}</div>
+                    </td>
+                    {% for q in r.cells %}
+                    <td class="st-num {% if q < 0 %}st-qty-out{% elif q == 0 %}st-qty-zero{% elif q <= low %}st-qty-low{% endif %}">{{ q }}</td>
+                    {% endfor %}
+                    <td class="st-num font-weight-bold">{{ r.total }}</td>
+                    <td class="pr-4">
+                        {% if r.total <= 0 %}<span class="st-chip out">Out</span>
+                        {% elif r.total <= low %}<span class="st-chip low">Low</span>
+                        {% else %}<span class="st-chip in">In stock</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="st-empty"><i class="fas fa-boxes"></i>No products match.</div>
+        {% endif %}
+    </div>
+    {% if page.has_other_pages %}
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+        <span class="small text-muted">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        <div>
+            {% if page.has_previous %}<a class="btn btn-sm btn-light border" href="?q={{ q|urlencode }}&status={{ status }}&page={{ page.previous_page_number }}">‹ Prev</a>{% endif %}
+            {% if page.has_next %}<a class="btn btn-sm btn-light border" href="?q={{ q|urlencode }}&status={{ status }}&page={{ page.next_page_number }}">Next ›</a>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

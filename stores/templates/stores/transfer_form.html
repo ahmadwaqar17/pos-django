@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% block title %}New Transfer | {{ brand_name }}{% endblock %}
+
+{% block nav-item %}
+<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3">New Stock Transfer</div>
+{% endblock %}
+
+{% block content %}
+{% include "stores/_styles.html" %}
+<style>
+    .tf-route { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .tf-route .form-group { flex: 1 1 220px; margin: 0; }
+    .tf-route .arrow { color: #b7b9cc; font-size: 1.4rem; padding-top: 1.6rem; }
+    .tf-pick-wrap { max-height: 62vh; overflow-y: auto; }
+    .tf-pick-wrap thead th { position: sticky; top: 0; z-index: 1; }
+    .tf-pick tr.is-added { background: #f2fbf6; }
+    .tf-pick .tf-in { width: 76px; text-align: right; display: inline-block; }
+    .tf-qty { width: 90px; text-align: right; display: inline-block; }
+    .tf-avail { font-weight: 800; }
+    .tf-avail.ok { color: #12a46a; }
+    .tf-avail.none { color: #c5c7d6; }
+    .tf-lines-wrap { max-height: 52vh; overflow-y: auto; }
+    @media (min-width: 1200px) { .tf-sticky { position: sticky; top: 1rem; } }
+</style>
+
+<form method="post" id="transferForm" autocomplete="off">
+    {% csrf_token %}
+    <div class="card st-card mb-4">
+        <div class="card-header py-3"><p class="st-title">Route</p></div>
+        <div class="card-body">
+            <div class="tf-route">
+                <div class="form-group">
+                    <label class="small font-weight-bold text-gray-700">From</label>
+                    <select name="source" id="source" class="form-control" required>
+                        {% for s in sources %}<option value="{{ s.pk }}" {% if form.source|stringformat:"s" == s.pk|stringformat:"s" %}selected{% endif %}>{% if s.is_warehouse %}🏭 {% endif %}{{ s.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="form-group">
+                    <label class="small font-weight-bold text-gray-700">To</label>
+                    <select name="destination" id="destination" class="form-control" required>
+                        <option value="">Choose a location…</option>
+                        {% for s in destinations %}<option value="{{ s.pk }}" {% if form.destination|stringformat:"s" == s.pk|stringformat:"s" %}selected{% endif %}>{% if s.is_warehouse %}🏭 {% endif %}{{ s.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="flex-basis:280px">
+                    <label class="small font-weight-bold text-gray-700">Note (optional)</label>
+                    <input type="text" name="note" maxlength="200" value="{{ form.note }}" class="form-control" placeholder="e.g. Weekly restock">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Stock available at the source -->
+        <div class="col-xl-7 mb-4">
+            <div class="card st-card h-100">
+                <div class="card-header py-3 d-flex flex-wrap justify-content-between align-items-center" style="gap:.5rem">
+                    <p class="st-title">Available at <span id="sourceName" class="text-primary"></span></p>
+                    <span class="small text-muted" id="pickCount"></span>
+                </div>
+                <div class="card-body pb-2">
+                    <div class="d-flex flex-wrap align-items-center mb-3" style="gap:.5rem">
+                        <div class="input-group" style="flex:1 1 260px">
+                            <div class="input-group-prepend"><span class="input-group-text bg-white"><i class="fas fa-search text-gray-400"></i></span></div>
+                            <input type="text" id="pickFilter" class="form-control" placeholder="Filter by name or barcode — or scan">
+                        </div>
+                        <select id="deptFilter" class="form-control" style="max-width:200px"><option value="">All departments</option></select>
+                        <div class="custom-control custom-checkbox ml-1">
+                            <input type="checkbox" class="custom-control-input" id="showEmpty">
+                            <label class="custom-control-label small" for="showEmpty">Show out of stock</label>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm ml-auto" id="addAllShown" title="Add every listed item with all of its available stock">
+                            <i class="fas fa-layer-group mr-1"></i> Add all shown
+                        </button>
+                    </div>
+                </div>
+                <div class="tf-pick-wrap">
+                    <table class="table table-hover mb-0 st-table tf-pick">
+                        <thead><tr>
+                            <th class="pl-4">Product</th><th>Department</th>
+                            <th class="st-num">Available</th><th class="st-num">Qty</th><th class="pr-4"></th>
+                        </tr></thead>
+                        <tbody id="pickBody"></tbody>
+                    </table>
+                    <div class="st-empty py-4" id="pickEmpty" style="display:none"><i class="fas fa-box-open"></i><span id="pickEmptyText">Nothing in stock here.</span></div>
+                    <div class="st-empty py-4" id="pickLoading"><i class="fas fa-spinner fa-spin"></i>Loading stock…</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items to send -->
+        <div class="col-xl-5 mb-4">
+            <div class="card st-card tf-sticky">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <p class="st-title">Items to send</p>
+                    <span class="small text-muted"><span id="lineCount">0</span> item(s) · <strong id="unitCount">0</strong> unit(s)</span>
+                </div>
+                <div class="tf-lines-wrap">
+                    <table class="table mb-0 st-table">
+                        <thead><tr><th class="pl-4">Product</th><th class="st-num">Available</th><th class="st-num">Send</th><th class="pr-3"></th></tr></thead>
+                        <tbody id="lines"></tbody>
+                    </table>
+                    <div class="st-empty py-4" id="noLines"><i class="fas fa-dolly"></i>Click <strong>Add</strong> on the left to choose items.</div>
+                </div>
+                <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{% url 'transfer_list' %}" class="btn btn-light border"><i class="fas fa-arrow-left mr-1"></i> Cancel</a>
+                        <button type="button" class="btn btn-link text-danger btn-sm" id="clearAll">Clear</button>
+                    </div>
+                    <button type="submit" class="btn btn-success px-4" id="submitBtn"><i class="fas fa-exchange-alt mr-1"></i> Move stock now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block script %}
+<script>
+(function () {
+    var searchUrl = "{% url 'stock_search' %}";
+    var initial = [{% for l in form.lines %}{barcode: "{{ l.barcode|escapejs }}", name: "{{ l.name|escapejs }}", qty: "{{ l.qty|escapejs }}"},{% endfor %}];
+    var $ = function (id) { return document.getElementById(id); };
+    var source = $('source'), tbody = $('lines'), pickBody = $('pickBody');
+    var stockList = [], byBarcode = {}, filterTimer = null;
+
+    function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function lineFor(bc) { return tbody.querySelector('tr[data-barcode="' + CSS.escape(bc) + '"]'); }
+
+    /* ---------------- items to send ---------------- */
+    function refreshCounts() {
+        var rows = tbody.querySelectorAll('tr'), units = 0;
+        rows.forEach(function (r) {
+            var qty = parseInt(r.querySelector('input[name=qty]').value || 0, 10);
+            var avail = parseInt(r.dataset.avail, 10);
+            units += qty;
+            r.querySelector('.warn').style.display = (!isNaN(avail) && qty > avail) ? '' : 'none';
+        });
+        $('lineCount').textContent = rows.length;
+        $('unitCount').textContent = units;
+        $('noLines').style.display = rows.length ? 'none' : '';
+        pickBody.querySelectorAll('tr[data-barcode]').forEach(function (r) {
+            r.classList.toggle('is-added', !!lineFor(r.dataset.barcode));
+        });
+    }
+
+    function addLine(p, qty, replace) {
+        qty = parseInt(qty, 10) || 1;
+        var existing = lineFor(p.barcode);
+        if (existing) {
+            var inp = existing.querySelector('input[name=qty]');
+            inp.value = replace ? qty : parseInt(inp.value || 0, 10) + qty;
+            refreshCounts();
+            return;
+        }
+        var known = byBarcode[p.barcode];
+        var avail = known ? known.qty : (p.qty === undefined ? '' : p.qty);
+        var tr = document.createElement('tr');
+        tr.dataset.barcode = p.barcode;
+        tr.dataset.avail = avail;
+        tr.innerHTML =
+            '<td class="pl-4"><div class="st-name">' + esc(p.name || (known && known.name) || p.barcode) + '</div><div class="st-code">' + esc(p.barcode) + '</div>' +
+            '<input type="hidden" name="barcode" value="' + esc(p.barcode) + '"></td>' +
+            '<td class="st-num avail">' + (avail === '' ? '—' : esc(avail)) + '</td>' +
+            '<td class="st-num"><input type="number" name="qty" min="1" step="1" class="form-control form-control-sm tf-qty" value="' + qty + '" required>' +
+            '<div class="warn small text-warning mt-1" style="display:none"><i class="fas fa-exclamation-triangle"></i> More than available</div></td>' +
+            '<td class="pr-3 text-right"><button type="button" class="btn btn-sm btn-light border remove" title="Remove"><i class="fas fa-times"></i></button></td>';
+        tbody.appendChild(tr);
+        refreshCounts();
+    }
+
+    tbody.addEventListener('click', function (e) {
+        if (e.target.closest('.remove')) { e.target.closest('tr').remove(); refreshCounts(); }
+    });
+    tbody.addEventListener('input', refreshCounts);
+    $('clearAll').addEventListener('click', function () { tbody.innerHTML = ''; refreshCounts(); });
+
+    /* ---------------- stock at the source ---------------- */
+    function filtered() {
+        var q = $('pickFilter').value.trim().toLowerCase(), dept = $('deptFilter').value;
+        return stockList.filter(function (p) {
+            if (dept && p.department !== dept) return false;
+            if (!q) return true;
+            return p.name.toLowerCase().indexOf(q) >= 0 || p.barcode.toLowerCase().indexOf(q) >= 0;
+        });
+    }
+
+    function renderPicker() {
+        var rows = filtered();
+        $('pickLoading').style.display = 'none';
+        $('pickEmpty').style.display = rows.length ? 'none' : '';
+        $('pickEmptyText').textContent = stockList.length ? 'No products match the filter.' : 'Nothing in stock at this location.';
+        $('pickCount').textContent = rows.length + ' of ' + stockList.length + ' product' + (stockList.length === 1 ? '' : 's');
+        pickBody.innerHTML = rows.slice(0, 500).map(function (p) {
+            var none = p.qty <= 0;
+            return '<tr data-barcode="' + esc(p.barcode) + '">' +
+                '<td class="pl-4"><div class="st-name">' + esc(p.name) + '</div><div class="st-code">' + esc(p.barcode) + '</div></td>' +
+                '<td class="text-gray-600">' + esc(p.department || '') + '</td>' +
+                '<td class="st-num"><span class="tf-avail ' + (none ? 'none' : 'ok') + '">' + esc(p.qty) + '</span></td>' +
+                '<td class="st-num"><input type="number" min="1" step="1" value="1" class="form-control form-control-sm tf-in"></td>' +
+                '<td class="pr-4 text-right text-nowrap">' +
+                '<button type="button" class="btn btn-sm btn-primary add" title="Add this quantity"><i class="fas fa-plus"></i> Add</button> ' +
+                (none ? '' : '<button type="button" class="btn btn-sm btn-light border add-all" title="Send all ' + esc(p.qty) + '">All</button>') +
+                '</td></tr>';
+        }).join('');
+        refreshCounts();
+    }
+
+    function loadStock() {
+        $('sourceName').textContent = source.options[source.selectedIndex] ? source.options[source.selectedIndex].text.replace('🏭 ', '') : '';
+        $('pickLoading').style.display = ''; $('pickEmpty').style.display = 'none'; pickBody.innerHTML = '';
+        var url = searchUrl + '?limit=2000&store=' + source.value + ($('showEmpty').checked ? '' : '&available=1');
+        fetch(url, {credentials: 'same-origin'})
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                stockList = d.products || [];
+                byBarcode = {};
+                stockList.forEach(function (p) { byBarcode[p.barcode] = p; });
+                var depts = Array.from(new Set(stockList.map(function (p) { return p.department; }).filter(Boolean))).sort();
+                var current = $('deptFilter').value;
+                $('deptFilter').innerHTML = '<option value="">All departments</option>' +
+                    depts.map(function (d) { return '<option' + (d === current ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('');
+                // Items already chosen: refresh their "available" figure for the new source.
+                tbody.querySelectorAll('tr').forEach(function (r) {
+                    var p = byBarcode[r.dataset.barcode];
+                    r.dataset.avail = p ? p.qty : 0;
+                    r.querySelector('.avail').textContent = r.dataset.avail;
+                });
+                renderPicker();
+            });
+    }
+
+    pickBody.addEventListener('click', function (e) {
+        var row = e.target.closest('tr[data-barcode]');
+        if (!row) return;
+        var p = byBarcode[row.dataset.barcode];
+        if (e.target.closest('.add')) {
+            addLine(p, row.querySelector('.tf-in').value);
+        } else if (e.target.closest('.add-all')) {
+            addLine(p, p.qty, true);
+        }
+    });
+    pickBody.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.target.classList.contains('tf-in')) {
+            e.preventDefault();
+            var row = e.target.closest('tr[data-barcode]');
+            addLine(byBarcode[row.dataset.barcode], e.target.value);
+        }
+    });
+    $('pickFilter').addEventListener('input', function () { clearTimeout(filterTimer); filterTimer = setTimeout(renderPicker, 120); });
+    $('pickFilter').addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        // Barcode scanner: exact barcode adds 1; a single match also adds.
+        var q = this.value.trim().toLowerCase();
+        var exact = stockList.filter(function (p) { return p.barcode.toLowerCase() === q; })[0];
+        var rows = filtered();
+        var hit = exact || (rows.length === 1 ? rows[0] : null);
+        if (hit) { addLine(hit, 1); this.value = ''; renderPicker(); }
+    });
+    $('deptFilter').addEventListener('change', renderPicker);
+    $('showEmpty').addEventListener('change', loadStock);
+    source.addEventListener('change', loadStock);
+    $('addAllShown').addEventListener('click', function () {
+        var rows = filtered().filter(function (p) { return p.qty > 0; });
+        if (!rows.length) return;
+        var units = rows.reduce(function (n, p) { return n + p.qty; }, 0);
+        if (!confirm('Add all ' + rows.length + ' listed items (' + units + ' units) with their full available stock?')) return;
+        rows.forEach(function (p) { addLine(p, p.qty, true); });
+    });
+
+    $('transferForm').addEventListener('submit', function (e) {
+        if (!tbody.querySelector('tr')) { e.preventDefault(); alert('Add at least one product.'); return; }
+        if (!$('destination').value) { e.preventDefault(); alert('Choose where the stock is going.'); $('destination').focus(); return; }
+        if (source.value === $('destination').value) { e.preventDefault(); alert('Source and destination must be different.'); return; }
+        $('submitBtn').disabled = true;
+    });
+
+    initial.forEach(function (l) { addLine({barcode: l.barcode, name: l.name}, l.qty, true); });
+    loadStock();
+})();
+</script>
+{% endblock %}

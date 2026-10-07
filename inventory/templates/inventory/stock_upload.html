@@ -47,6 +47,15 @@
             <div class="alert alert-danger">{{ form.non_field_errors }}</div>
           {% endif %}
 
+          <div class="form-group">
+            <label class="font-weight-bold" for="{{ form.store.id_for_label }}">{{ form.store.label }}</label>
+            <select name="{{ form.store.html_name }}" id="{{ form.store.id_for_label }}" class="form-control" style="max-width:360px">
+              {% for value, label in form.store.field.choices %}
+                <option value="{{ value }}" {% if form.store.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">{{ form.store.help_text }}</small>
+          </div>
           <div class="font-weight-bold mb-2">{{ form.stock_file.label }}</div>
           <label class="su-drop{% if form.stock_file.errors %} has-error{% endif %}" id="dropZone" for="{{ form.stock_file.id_for_label }}">
             <i class="fas fa-cloud-upload-alt su-icon"></i>

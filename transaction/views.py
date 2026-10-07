@@ -7,6 +7,8 @@ from .models import productTransaction, transaction
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django import forms
+from django.contrib import messages
+from stores.access import scope_sales, visible_stores
 
 class DateSelector(forms.Form):
     start_date = forms.DateField(widget = forms.SelectDateWidget())
@@ -39,10 +41,15 @@ class printer:
             printer.printer = None
 
 
+def _visible_sales(request):
+    """Sales from branches this user may see (owners: all; staff: their branch)."""
+    return transaction.objects.filter(store__in=visible_stores(request))
+
+
 @login_required(login_url="/user/login/")
 def transactionReceipt(request,transNo):
     try:
-        t = transaction.objects.get(transaction_id=transNo)
+        t = _visible_sales(request).select_related('store').get(transaction_id=transNo)
         import ast
         items = ast.literal_eval(t.products)
         for it in items:
@@ -50,8 +57,9 @@ def transactionReceipt(request,transNo):
         return render(request,'receiptView.html',context={
             'receipt': t.receipt, 'transNo': transNo,
             'txn': t, 'items': items,
-            'store_name': settings.STORE_NAME, 'store_address': settings.STORE_ADDRESS,
-            'store_phone': settings.STORE_PHONE,
+            'store_name': t.store.name or settings.STORE_NAME,
+            'store_address': t.store.address,
+            'store_phone': t.store.phone,
         })
     except transaction.DoesNotExist:
         raise Http404("No Transactions Found!!!")
@@ -59,7 +67,7 @@ def transactionReceipt(request,transNo):
 @login_required(login_url="/user/login/")
 def transactionPrintReceipt(request,transNo):
     try:
-        receipt = transaction.objects.get(transaction_id=transNo).receipt
+        receipt = _visible_sales(request).get(transaction_id=transNo).receipt
         if printer.printer is None:
             printer.connectPrinter() 
             print("Connecting Printer")
@@ -81,7 +89,9 @@ def transactionView(request, transNo=None):
         if form.is_valid():
             end_date= form.cleaned_data['end_date']
             start_date= form.cleaned_data['start_date']
-    transactions = list(transaction.objects.filter(transaction_dt__date__range = (start_date,end_date)).order_by('-transaction_dt').values('transaction_dt', 'transaction_id','total_sale','payment_type'))
+    transactions = list(scope_sales(transaction.objects, request)
+        .filter(transaction_dt__date__range = (start_date,end_date)).order_by('-transaction_dt')
+        .values('transaction_dt', 'transaction_id','total_sale','payment_type','store__name'))
     return render(request, 'transactions.html',
         context={'transactions':transactions,
             'form':form,})
@@ -153,7 +163,7 @@ def endTransactionReceipt(request,transNo):
                                  CARD TRANSACTION 
                             </div> 
                             """
-        obj = transaction.objects.get(transaction_id=transNo)
+        obj = _visible_sales(request).get(transaction_id=transNo)
         return render(request,'endTransaction.html',context={'receipt':obj.receipt,'change':change})
     except transaction.DoesNotExist:
         raise Http404("No Transactions Found!!!")
@@ -175,6 +185,11 @@ def setDiscount(request, percent):
 
 @login_required(login_url="/user/login/")
 def endTransaction(request,type,value):
+    store = request.store
+    if store is None or store.is_warehouse:
+        messages.error(request, "Sales can't be made at the warehouse. Switch to a shop first.")
+        return redirect("register")
+    return_transaction = None
     try:
         # Card Transactions
         cart = request.session[settings.CART_SESSION_ID]
@@ -185,18 +200,18 @@ def endTransaction(request,type,value):
         if type == "card": # Card Transaction
             # EBT Transaction
             if value=="EBT": 
-                return_transaction = addTransaction(request.user,"EBT",total,cart,total,
+                return_transaction = addTransaction(request.user,store,"EBT",total,cart,total,
                     discount_percent=discount_percent, discount_amount=discount_amount,
                     gross_total=gross_total)
             # DEBIT/CREDIT Transaction
             elif value=="DEBIT_CREDIT": 
-                return_transaction = addTransaction(request.user,"DEBIT/CREDIT",total,cart,total,
+                return_transaction = addTransaction(request.user,store,"DEBIT/CREDIT",total,cart,total,
                     discount_percent=discount_percent, discount_amount=discount_amount,
                     gross_total=gross_total)
         elif type=="cash": # Cash Transaction
             value = round(float(value),2)
             if value>= total: 
-                return_transaction = addTransaction(request.user,"CASH",total,cart,value,
+                return_transaction = addTransaction(request.user,store,"CASH",total,cart,value,
                     discount_percent=discount_percent, discount_amount=discount_amount,
                     gross_total=gross_total)
         if return_transaction:
@@ -239,7 +254,7 @@ def sold_items_report(request):
             start_date = form.cleaned_data['start_date']
             end_date = form.cleaned_data['end_date']
 
-    rows = list(productTransaction.objects
+    rows = list(scope_sales(productTransaction.objects, request)
         .filter(transaction_date_time__date__range=(start_date, end_date))
         .order_by('-transaction_date_time')
         .values(
@@ -247,7 +262,7 @@ def sold_items_report(request):
             'barcode', 'name', 'department', 'sales_price', 'qty',
             'tax_category', 'tax_percentage', 'tax_amount',
             'deposit_category', 'deposit', 'deposit_amount',
-            'payment_type', 'transaction__user_id',
+            'payment_type', 'transaction__user_id', 'store__name',
         )
     )
 
@@ -267,7 +282,8 @@ def sold_items_report(request):
         deposit=Sum('deposit_total'))
 
     if request.GET.get('export') in ('csv', 'xlsx'):
-        return _export_sold_items(request.GET['export'], rows, totals, start_date, end_date)
+        return _export_sold_items(request.GET['export'], rows, totals, start_date, end_date,
+                                  branch_label=_branch_label(request))
 
     quick_ranges = [
         ('Today', today, today),
@@ -292,13 +308,21 @@ def sold_items_report(request):
         'start_date_iso': start_date.isoformat(),
         'end_date_iso': end_date.isoformat(),
         'store_name': settings.STORE_NAME,
+        'branch_label': _branch_label(request),
         'currency': 'PKR',
     }
     return render(request, 'sold_items_report.html', context=context)
 
 
+def _branch_label(request):
+    if request.all_branches and request.is_owner:
+        return "All branches"
+    return request.store.name if request.store else ""
+
+
+
 EXPORT_COLUMNS = ['Date', 'Time', 'Receipt #', 'Barcode', 'Product', 'Department', 'Qty',
-                  'Unit Price', 'Line Total', 'Tax', 'Deposit', 'Payment', 'Cashier']
+                  'Unit Price', 'Line Total', 'Tax', 'Deposit', 'Payment', 'Cashier', 'Branch']
 MONEY_COLUMNS = {'Unit Price', 'Line Total', 'Tax', 'Deposit'}
 
 
@@ -308,7 +332,7 @@ def _safe_text(value):
     return "'" + value if value[:1] in ('=', '+', '-', '@') else value
 
 
-def _export_sold_items(fmt, rows, totals, start_date, end_date):
+def _export_sold_items(fmt, rows, totals, start_date, end_date, branch_label=""):
     """Sold Items report as a CSV or Excel download, built from the same rows
     and receipt totals the page shows so the figures always match."""
     data = []
@@ -319,16 +343,16 @@ def _export_sold_items(fmt, rows, totals, start_date, end_date):
             _safe_text(r['barcode']), _safe_text(r['name']), _safe_text(r['department']),
             r['qty'] or 0, float(r['sales_price'] or 0), float(r['line_total'] or 0),
             float(r['tax_amount'] or 0), float(r['deposit_amount'] or 0),
-            r['payment_type'], _safe_text(r['cashier']),
+            r['payment_type'], _safe_text(r['cashier']), _safe_text(r['store__name']),
         ])
 
     discount = float(totals['discount'] or 0)
     summary = [
         ['Total', '', '', '', '', '', sum(r[6] for r in data), '', sum(r[8] for r in data),
-         sum(r[9] for r in data), sum(r[10] for r in data), '', ''],
-        ['Less: receipt discounts', '', '', '', '', '', '', '', -discount, '', '', '', ''],
+         sum(r[9] for r in data), sum(r[10] for r in data), '', '', ''],
+        ['Less: receipt discounts', '', '', '', '', '', '', '', -discount, '', '', '', '', ''],
         ['Net revenue (incl. tax & deposit)', '', '', '', '', '', '', '', float(totals['revenue'] or 0),
-         '', '', '', ''],
+         '', '', '', '', ''],
     ]
     if not discount:
         del summary[1]
@@ -355,7 +379,8 @@ def _export_sold_items(fmt, rows, totals, start_date, end_date):
     ws = wb.active
     ws.title = 'Sold Items'
     period_label = f"{start_date:%d %b %Y}" + ('' if start_date == end_date else f" – {end_date:%d %b %Y}")
-    ws.append([f"{settings.STORE_NAME} — Sold Items, {period_label}"])
+    title = f"{settings.STORE_NAME} — Sold Items, {period_label}"
+    ws.append([f"{title} ({branch_label})" if branch_label else title])
     ws['A1'].font = Font(bold=True, size=14)
     ws.append([])
     ws.append(EXPORT_COLUMNS)
@@ -380,7 +405,7 @@ def _export_sold_items(fmt, rows, totals, start_date, end_date):
                 cell.number_format = '#,##0.00'
             elif name == 'Date' and cell.row <= last_data_row:
                 cell.number_format = 'DD-MM-YYYY'
-        widths = {'Date': 12, 'Time': 8, 'Receipt #': 22, 'Product': 32, 'Department': 16, 'Qty': 7}
+        widths = {'Date': 12, 'Time': 8, 'Receipt #': 22, 'Product': 32, 'Department': 16, 'Qty': 7, 'Branch': 18}
         ws.column_dimensions[letter].width = widths.get(name, 14)
 
     ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
@@ -395,7 +420,7 @@ def _export_sold_items(fmt, rows, totals, start_date, end_date):
     return response
 
 
-def addTransaction(user,payment_type,total,cart,value,discount_percent=0,discount_amount=0.0,gross_total=None):
+def addTransaction(user,store,payment_type,total,cart,value,discount_percent=0,discount_amount=0.0,gross_total=None):
     transaction_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
     short_id = transaction_id[:14]
     cart_df = pd.DataFrame(cart).T.reset_index(drop=True)
@@ -419,12 +444,17 @@ def addTransaction(user,payment_type,total,cart,value,discount_percent=0,discoun
             items_lines.append(f"    Deposit:  PKR {dep:.2f}")
     cart_string = "\n".join(items_lines)
 
+    # Header/footer come from the selling branch; settings are the fallback.
+    store_name = store.name or settings.STORE_NAME
+    store_address = store.address or settings.STORE_ADDRESS
+    store_phone = store.phone or settings.STORE_PHONE
+    footer = store.receipt_footer or settings.RECEIPT_FOOTER
     receipt = f"{'='*w}\n"
-    receipt += f"{settings.STORE_NAME.center(w)}\n"
-    if settings.STORE_ADDRESS:
-        receipt += f"{settings.STORE_ADDRESS.center(w)}\n"
-    if settings.STORE_PHONE:
-        receipt += f"{'Ph: '+str(settings.STORE_PHONE).center(w-4)}\n"
+    receipt += f"{store_name.center(w)}\n"
+    if store_address:
+        receipt += f"{store_address.center(w)}\n"
+    if store_phone:
+        receipt += f"{'Ph: '+str(store_phone).center(w-4)}\n"
     receipt += f"{'='*w}\n"
     receipt += f"{receipt_date.center(w)}\n"
     receipt += f"{'Receipt #'+short_id.center(w-8)}\n"
@@ -446,7 +476,7 @@ def addTransaction(user,payment_type,total,cart,value,discount_percent=0,discoun
     receipt += f" {str(payment_type):<15}PKR {round(value,2):>8.2f}\n"
     receipt += f" {'CHANGE:':<15}PKR {round(value-total,2):>8.2f}\n"
     receipt += f"{'='*w}\n"
-    receipt += f"{settings.RECEIPT_FOOTER.center(w)}\n"
+    receipt += f"{footer.center(w)}\n"
     receipt += f"{'='*w}\n"
     receipt += f"{('Trans ID: '+transaction_id).center(w)}\n"
     receipt += f"{'='*w}"
@@ -458,7 +488,7 @@ def addTransaction(user,payment_type,total,cart,value,discount_percent=0,discoun
 
     #Saving Transaction into Database
     return transaction.objects.create( transaction_id = transaction_id , transaction_dt = datetime.strptime(transaction_id[:-6],'%Y%m%d%H%M%S'),
-            user = user, total_sale= total, sub_total = round(gross_total-tax_total,2),tax_total=tax_total, deposit_total = deposit_total,
+            user = user, store = store, total_sale= total, sub_total = round(gross_total-tax_total,2),tax_total=tax_total, deposit_total = deposit_total,
             discount_percent = discount_percent if discount_percent > 0 else None,
             discount_amount = discount_amount if discount_percent > 0 else None,
             payment_type = payment_type, receipt = receipt, products = str(cart_df.to_dict('records')),

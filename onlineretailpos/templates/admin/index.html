@@ -56,8 +56,10 @@
             {% endif %}
             <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'admin:inventory_product_changelist' %}?stock=low"><i class="fas fa-exclamation-triangle"></i> Low-stock list</a></div>
             <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'admin:inventory_product_changelist' %}"><i class="fas fa-list"></i> All products</a></div>
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'transfer_new' %}" target="_blank"><i class="fas fa-exchange-alt"></i> New transfer</a></div>
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'stock_levels' %}" target="_blank"><i class="fas fa-boxes"></i> Stock levels</a></div>
             <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'admin:transaction_transaction_changelist' %}"><i class="fas fa-receipt"></i> Sales</a></div>
-            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'register' %}" target="_blank"><i class="fas fa-cash-register"></i> Open POS</a></div>
+            <div class="col-lg-2 col-md-4 col-6 mb-2"><a class="pos-shortcut" href="{% url 'home' %}" target="_blank"><i class="fas fa-cash-register"></i> Open POS</a></div>
         </div>
     </div>
 </div>

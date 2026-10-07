@@ -9,6 +9,8 @@ from django.utils.http import urlencode
 from django.utils.html import format_html
 
 from .models import product, department, tax, deposit
+from stores import stock
+from stores.models import Store
 from .stock_import import ImportCancelled, import_stock
 
 # django-import-export pulls in tablib[ods] -> odfpy, which ships no binary
@@ -26,7 +28,7 @@ if HAS_IMPORT_EXPORT:
     class ProductResource(resources.ModelResource):
         class Meta:
             model = product
-            fields = ("id","barcode","name","sales_price","qty","cost_price",
+            fields = ("id","barcode","name","sales_price","cost_price",
                 "department","department__department_name","department__department_desc",
                 "department__department_slug", "tax_category", "tax_category__tax_category",
                 "tax_category__tax_desc", "tax_category__tax_percentage", "deposit_category",
@@ -38,13 +40,18 @@ if HAS_IMPORT_EXPORT:
 class StockUploadForm(forms.Form):
     """One-file upload form for the admin stock import (.xlsx)."""
 
+    store = forms.ModelChoiceField(
+        queryset=Store.objects.filter(is_active=True), empty_label=None, required=False,
+        label="Receive into",
+        help_text="Which location the quantities are added to. Usually the warehouse.")
+
     stock_file = forms.FileField(
         label="Stock file (.xlsx)",
         help_text=(
             "Excel sheet with columns: Sr. No., Code, Barcode, Size, Quantity, "
             "plus optional Sales Price and Cost Price. New barcodes are "
             "created; existing barcodes get the quantity ADDED to current "
-            "stock and prices updated only where the sheet provides a value. "
+            "stock at the chosen location and prices updated only where the sheet provides a value. "
             "If any row is invalid, nothing is saved."
         ),
     )
@@ -65,12 +72,13 @@ class StockStatusFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
+        # total_stock is annotated in ProductAdmin.get_queryset (all branches).
         if self.value() == "in":
-            return queryset.filter(qty__gt=LOW_STOCK_THRESHOLD)
+            return queryset.filter(total_stock__gt=LOW_STOCK_THRESHOLD)
         if self.value() == "low":
-            return queryset.filter(qty__gt=0, qty__lte=LOW_STOCK_THRESHOLD)
+            return queryset.filter(total_stock__gt=0, total_stock__lte=LOW_STOCK_THRESHOLD)
         if self.value() == "out":
-            return queryset.filter(qty__lte=0)
+            return queryset.filter(total_stock__lte=0)
         return queryset
 
 
@@ -92,9 +100,10 @@ class CostPriceFilter(admin.SimpleListFilter):
 @admin.register(product)
 class ProductAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else admin.ModelAdmin):
     list_display = ("name", "barcode", "department", "sales_price", "cost_price", "margin",
-                    "qty", "stock_status", "tax_category", "deposit_category")
+                    "total_stock_display", "stock_status", "tax_category", "deposit_category")
     list_display_links = ("name",)
-    list_editable = ("sales_price", "cost_price", "qty")
+    # Stock is changed through Receive / Transfer / sales so every change is logged.
+    list_editable = ("sales_price", "cost_price")
     list_filter = (StockStatusFilter, CostPriceFilter, "department", "tax_category", "deposit_category")
     search_fields = ("barcode", "name", "department__department_name")
     list_select_related = ("department", "tax_category", "deposit_category")
@@ -103,8 +112,9 @@ class ProductAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else admin.ModelA
     change_list_template = "inventory/product_changelist.html"
 
     def get_queryset(self, request):
-        # Margin as a DB expression so the column can be sorted.
-        return super().get_queryset(request).annotate(
+        # Margin as a DB expression so the column can be sorted; stock = all branches.
+        qs = stock.with_stock(super().get_queryset(request), None, name="total_stock")
+        return qs.annotate(
             margin_pct=Case(
                 When(sales_price__gt=0, cost_price__gt=0, then=ExpressionWrapper(
                     (F("sales_price") - F("cost_price")) * 100.0 / F("sales_price"),
@@ -118,11 +128,15 @@ class ProductAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else admin.ModelA
         color = "#e0475b" if obj.margin_pct < 0 else "#12a46a" if obj.margin_pct >= 20 else "#d97706"
         return format_html('<span style="color:{};font-weight:700">{}%</span>', color, f"{obj.margin_pct:.1f}")
 
-    @admin.display(description="Stock", ordering="qty")
+    @admin.display(description="Stock (all branches)", ordering="total_stock")
+    def total_stock_display(self, obj):
+        return obj.total_stock
+
+    @admin.display(description="Status", ordering="total_stock")
     def stock_status(self, obj):
-        if obj.qty <= 0:
+        if obj.total_stock <= 0:
             label, bg, fg = "Out", "#fde8eb", "#e0475b"
-        elif obj.qty <= LOW_STOCK_THRESHOLD:
+        elif obj.total_stock <= LOW_STOCK_THRESHOLD:
             label, bg, fg = "Low", "#fff4e0", "#d97706"
         else:
             label, bg, fg = "In stock", "#e3f6ee", "#12a46a"
@@ -160,18 +174,19 @@ class ProductAdmin(ImportExportModelAdmin if HAS_IMPORT_EXPORT else admin.ModelA
             form = StockUploadForm(request.POST, request.FILES)
             if form.is_valid():
                 try:
-                    created, updated = import_stock(form.cleaned_data["stock_file"])
+                    created, updated = import_stock(form.cleaned_data["stock_file"],
+                                                    store=form.cleaned_data["store"], user=request.user)
                 except ImportCancelled as exc:
                     form.add_error("stock_file", str(exc))
                 else:
                     messages.success(
                         request,
-                        f"Stock import complete: {created} products created, "
-                        f"{updated} existing products topped up.",
+                        f"Stock import complete into {form.cleaned_data['store']}: "
+                        f"{created} products created, {updated} existing products topped up.",
                     )
                     return redirect("admin:inventory_product_changelist")
         else:
-            form = StockUploadForm()
+            form = StockUploadForm(initial={"store": Store.warehouse()})
 
         context["form"] = form
         return render(request, "inventory/stock_upload.html", context)

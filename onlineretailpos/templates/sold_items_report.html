@@ -80,6 +80,7 @@
 <h6 class="text-gray-600 mb-3">
     <i class="far fa-calendar-alt mr-1"></i>
     {{ period_label }}{% if start_date != end_date %} &ndash; {{ end_date|date:"d M Y" }}{% endif %}
+    {% if branch_label %}<span class="badge badge-pill badge-light border ml-2"><i class="fas fa-store mr-1"></i>{{ branch_label }}</span>{% endif %}
 </h6>
 
 <!-- Stats -->
@@ -138,6 +139,7 @@
                     <th class="num">Deposit</th>
                     <th>Payment</th>
                     <th>Cashier</th>
+                    {% if all_branches and is_owner %}<th>Branch</th>{% endif %}
                     <th class="pr-3">Receipt #</th>
                 </tr>
                 </thead>
@@ -162,6 +164,7 @@
                         <span class="badge {% if r.payment_type == 'CASH' %}badge-success{% else %}badge-info{% endif %} px-2">{{ r.payment_type }}</span>
                     </td>
                     <td class="text-gray-700"><i class="fas fa-user-circle text-gray-400 mr-1"></i>{{ r.cashier|default:"—" }}</td>
+                    {% if all_branches and is_owner %}<td class="text-gray-700">{{ r.store__name }}</td>{% endif %}
                     <td class="pr-3 receipt">{{ r.transaction_id_num }}</td>
                 </tr>
                 {% endfor %}
@@ -174,19 +177,19 @@
                     <td class="num">{{ gross_sales|floatformat:2 }}</td>
                     <td class="num">{{ total_tax|floatformat:2 }}</td>
                     <td class="num">{{ total_deposit|floatformat:2 }}</td>
-                    <td colspan="3"></td>
+                    <td colspan="3"></td>{% if all_branches and is_owner %}<td></td>{% endif %}
                 </tr>
                 {% if total_discount %}
                 <tr>
                     <td class="pl-3 text-danger" colspan="5">Less: receipt discounts</td>
                     <td class="num text-danger">&minus;{{ total_discount|floatformat:2 }}</td>
-                    <td colspan="5"></td>
+                    <td colspan="5"></td>{% if all_branches and is_owner %}<td></td>{% endif %}
                 </tr>
                 {% endif %}
                 <tr>
                     <td class="pl-3 text-success" colspan="5">Net revenue (incl. tax &amp; deposit)</td>
                     <td class="num text-success">{{ total_revenue|floatformat:2 }}</td>
-                    <td colspan="5"></td>
+                    <td colspan="5"></td>{% if all_branches and is_owner %}<td></td>{% endif %}
                 </tr>
                 </tfoot>
             </table>

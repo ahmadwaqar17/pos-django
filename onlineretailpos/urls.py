@@ -16,7 +16,7 @@ Including another URLconf
 from django.views.static import serve
 from django.conf import settings
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import include, path, re_path
 from transaction import views as transaction_views
 from cart import views as cart_views
 from . import views as views
@@ -39,7 +39,7 @@ urlpatterns = [
 
 
         # Dashboard URLs, Sales Dashboard is set Up as home Currently
-        path('',views.dashboard_sales, name="home"),
+        path('',views.home, name="home"),
         path('dashboard_sales/',views.dashboard_sales, name="dashboard_sales"),
         path('dashboard_department/',views.dashboard_department, name="dashboard_department"),
         path('dashboard_products/',views.dashboard_products, name="dashboard_products"),
@@ -80,6 +80,9 @@ urlpatterns = [
 
         # Customer Screen URLs
         path("retail_display/",views.retail_display,name="retail_display"),
+
+        # Branches & stock
+        path('', include('stores.urls')),
         path("retail_display/<values>/",views.retail_display),
 
         # Other URLs

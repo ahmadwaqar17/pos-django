@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'inventory',
     'transaction',
     'cart',
+    'stores',
     'onlineretailpos.apps.OnlineRetailPOSConfig',
 ]
 
@@ -66,6 +67,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'stores.access.StoreMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -86,6 +88,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'onlineretailpos.context_processors.branding',
+                'stores.access.branch_context',
             ],
         },
     },
@@ -169,8 +172,9 @@ JAZZMIN_SETTINGS = {
 
     "topmenu_links": [
         {"name": "Dashboard", "url": "admin:index"},
-        {"name": "Open POS", "url": "register", "new_window": True},
+        {"name": "Open POS", "url": "home", "new_window": True},
         {"model": "inventory.product"},
+        {"name": "Transfers", "url": "transfer_list", "new_window": True},
     ],
     "usermenu_links": [
         {"name": "Open POS", "url": "register", "new_window": True, "icon": "fas fa-cash-register"},
@@ -180,9 +184,18 @@ JAZZMIN_SETTINGS = {
     "navigation_expanded": True,
     "order_with_respect_to": [
         "inventory", "inventory.product", "inventory.department", "inventory.tax", "inventory.deposit",
+        "stores", "stores.store", "stores.storemembership", "stores.branchstock", "stores.stocktransfer", "stores.stockmovement",
         "transaction", "cart", "auth",
     ],
     "custom_links": {
+        "stores": [
+            {"name": "New transfer (POS)", "url": "transfer_new", "icon": "fas fa-exchange-alt",
+             "permissions": ["stores.view_stocktransfer"]},
+            {"name": "Stock levels (POS)", "url": "stock_levels", "icon": "fas fa-boxes",
+             "permissions": ["stores.view_branchstock"]},
+            {"name": "Receive stock (POS)", "url": "inventory_add", "icon": "fas fa-dolly",
+             "permissions": ["stores.view_branchstock"]},
+        ],
         "inventory": [{
             "name": "Upload stock (.xlsx)",
             "url": "admin:inventory_product_stock_upload",
@@ -202,6 +215,12 @@ JAZZMIN_SETTINGS = {
         "transaction.productTransaction": "fas fa-list-ul",
         "cart.displayed_items": "fas fa-th-large",
         "django_admin_logs.LogEntry": "fas fa-history",
+        "stores": "fas fa-store",
+        "stores.store": "fas fa-store",
+        "stores.storemembership": "fas fa-id-badge",
+        "stores.branchstock": "fas fa-boxes",
+        "stores.stocktransfer": "fas fa-exchange-alt",
+        "stores.stockmovement": "fas fa-history",
     },
     "default_icon_parents": "fas fa-folder",
     "default_icon_children": "fas fa-circle",

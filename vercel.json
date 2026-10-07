@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "python manage.py migrate --no-input && python manage.py collectstatic --no-input"
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"preview\" ]; then echo 'Preview build: skipping database migrations'; else python manage.py migrate --no-input; fi && python manage.py collectstatic --no-input"
 }

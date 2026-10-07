@@ -4,6 +4,10 @@ from .models import product as Product
 from .models import product
 from django import forms
 from django.db.models import Q
+from django.contrib import messages
+from stores import stock
+from stores.access import manager_required, visible_stores
+from stores.models import BranchStock, StockMovement
 from django.forms import TextInput
 from cart.models import Cart
 import decimal
@@ -33,19 +37,26 @@ def product_lookup(request):
     elif request.GET.get('barcode'):
         query = request.GET['barcode'].strip()
 
+    products = stock.with_stock(product.objects.select_related('department'), request.store)
     if query:
-        obj = product.objects.filter(barcode=query).first()
+        obj = products.filter(barcode=query).first()
         if obj is None:
-            matches = list(product.objects.select_related('department')
+            matches = list(products
                 .filter(Q(barcode__icontains=query) | Q(name__icontains=query)
                         | Q(product_desc__icontains=query))
                 .order_by('name')[:50])
             if len(matches) == 1:
                 obj, matches = matches[0], []
 
+    stock_by_branch = []
+    if obj is not None:
+        stock_by_branch = list(BranchStock.objects.filter(product=obj, store__in=visible_stores(request))
+                               .select_related('store').order_by('store__is_warehouse', 'store__name'))
+
     context = {
         'form': ProductLookup(initial={'barcode': query} if matches else None),
         'obj': obj,
+        'stock_by_branch': stock_by_branch,
         'matches': matches,
         'query': query,
         'notFound': bool(query) and obj is None and not matches,
@@ -79,6 +90,7 @@ def manualAmount(request,manual_department,amount):
 
 
 @login_required(login_url="/user/login")
+@manager_required
 def inventoryAdd(request):
     context = { }
     if request.method == "POST":
@@ -86,11 +98,15 @@ def inventoryAdd(request):
         if form.is_valid():
             try:
                 obj = product.objects.get(barcode=form.cleaned_data['barcode'])
-                # 'product_added':  True if "ProductNotFound" in request.path else False, 
-                context['p_qty'] = obj.qty
-                context['n_qty'] = int(form.cleaned_data['qty'])
-                obj.qty = obj.qty + context['n_qty']
-                obj.save()
+                added = int(form.cleaned_data['qty'])
+                if added <= 0:
+                    raise ValueError
+                new_qty = stock.adjust(request.store, obj, added, StockMovement.RECEIVE,
+                                       user=request.user, note="Received in POS")
+                context.update(received=True, p_qty=new_qty - added, n_qty=added, new_qty=new_qty)
+            except ValueError:
+                obj = None
+                messages.error(request, "Quantity must be more than 0.")
             except product.DoesNotExist:
                 obj = None
                 context['notFound']= form.cleaned_data['barcode']

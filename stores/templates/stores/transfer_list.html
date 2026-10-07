@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Transfers | {{ brand_name }}{% endblock %}
+
+{% block nav-item %}
+<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3">Stock Transfers</div>
+{% endblock %}
+
+{% block content %}
+{% include "stores/_styles.html" %}
+
+<div class="card st-card mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <p class="st-title">Recent transfers</p>
+        <a href="{% url 'transfer_new' %}" class="btn btn-success btn-sm"><i class="fas fa-plus mr-1"></i> New transfer</a>
+    </div>
+    <div class="card-body p-0">
+        {% if page.object_list %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 st-table">
+                <thead><tr>
+                    <th class="pl-4">#</th><th>Date</th><th>From</th><th></th><th>To</th>
+                    <th class="st-num">Items</th><th class="st-num">Units</th><th>By</th><th class="pr-4">Note</th>
+                </tr></thead>
+                <tbody>
+                {% for t in page %}
+                <tr style="cursor:pointer" onclick="location.href='{% url 'transfer_detail' t.pk %}'">
+                    <td class="pl-4"><a href="{% url 'transfer_detail' t.pk %}" class="font-weight-bold">#{{ t.pk }}</a></td>
+                    <td class="text-nowrap">{{ t.created_at|date:"d M Y, h:i A" }}</td>
+                    <td>{% if t.source.is_warehouse %}<i class="fas fa-warehouse text-warning mr-1"></i>{% endif %}{{ t.source }}</td>
+                    <td class="text-gray-400"><i class="fas fa-arrow-right"></i></td>
+                    <td>{% if t.destination.is_warehouse %}<i class="fas fa-warehouse text-warning mr-1"></i>{% endif %}{{ t.destination }}</td>
+                    <td class="st-num">{{ t.lines }}</td>
+                    <td class="st-num font-weight-bold">{{ t.units|default:0 }}</td>
+                    <td class="text-gray-700">{{ t.created_by|default:"—" }}</td>
+                    <td class="pr-4 text-muted">{{ t.note|default:""|truncatechars:40 }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="st-empty"><i class="fas fa-exchange-alt"></i>No transfers yet.<br>
+            <a href="{% url 'transfer_new' %}" class="btn btn-primary btn-sm mt-3">Make the first transfer</a></div>
+        {% endif %}
+    </div>
+    {% if page.has_other_pages %}
+    <div class="card-footer bg-white text-right">
+        {% if page.has_previous %}<a class="btn btn-sm btn-light border" href="?page={{ page.previous_page_number }}">‹ Prev</a>{% endif %}
+        {% if page.has_next %}<a class="btn btn-sm btn-light border" href="?page={{ page.next_page_number }}">Next ›</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

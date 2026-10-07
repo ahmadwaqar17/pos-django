@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Transfer #{{ transfer.pk }} | {{ brand_name }}{% endblock %}
+
+{% block nav-item %}
+<div class="mb-0 font-weight-bold h5 text-gray-500 text-uppercase p-3 d-flex align-items-center">
+    <span class="mr-3">Transfer #{{ transfer.pk }}</span>
+    <button type="button" class="btn btn-primary btn-sm shadow-sm d-print-none" onclick="window.print()"><i class="fas fa-print mr-1"></i> Print</button>
+</div>
+{% endblock %}
+
+{% block content %}
+{% include "stores/_styles.html" %}
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <div class="card st-card h-100">
+            <div class="card-header py-3"><p class="st-title">Summary</p></div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3" style="gap:.75rem">
+                    <span class="st-chip neutral">{% if transfer.source.is_warehouse %}<i class="fas fa-warehouse"></i>{% else %}<i class="fas fa-store"></i>{% endif %} {{ transfer.source }}</span>
+                    <i class="fas fa-arrow-right text-gray-400"></i>
+                    <span class="st-chip in">{% if transfer.destination.is_warehouse %}<i class="fas fa-warehouse"></i>{% else %}<i class="fas fa-store"></i>{% endif %} {{ transfer.destination }}</span>
+                </div>
+                <dl class="mb-0">
+                    <dt class="small text-muted text-uppercase">Date</dt><dd>{{ transfer.created_at|date:"d M Y, h:i A" }}</dd>
+                    <dt class="small text-muted text-uppercase">By</dt><dd>{{ transfer.created_by|default:"—" }}</dd>
+                    <dt class="small text-muted text-uppercase">Items / units</dt><dd>{{ lines|length }} / <strong>{{ units }}</strong></dd>
+                    {% if transfer.note %}<dt class="small text-muted text-uppercase">Note</dt><dd>{{ transfer.note }}</dd>{% endif %}
+                </dl>
+            </div>
+            <div class="card-footer bg-white d-print-none">
+                <a href="{% url 'transfer_list' %}" class="btn btn-light border btn-sm"><i class="fas fa-arrow-left mr-1"></i> All transfers</a>
+                <a href="{% url 'transfer_new' %}" class="btn btn-success btn-sm float-right"><i class="fas fa-plus mr-1"></i> New transfer</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8 mb-4">
+        <div class="card st-card h-100">
+            <div class="card-header py-3"><p class="st-title">Items moved</p></div>
+            <div class="card-body p-0">
+                <table class="table mb-0 st-table">
+                    <thead><tr><th class="pl-4">Product</th><th>Barcode</th><th class="st-num pr-4">Qty</th></tr></thead>
+                    <tbody>
+                    {% for l in lines %}
+                    <tr>
+                        <td class="pl-4 st-name">{{ l.product.name }}</td>
+                        <td class="st-code">{{ l.product.barcode }}</td>
+                        <td class="st-num pr-4 font-weight-bold">{{ l.qty_change }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                    <tfoot><tr><td class="pl-4 font-weight-bold" colspan="2">Total</td><td class="st-num pr-4 font-weight-bold">{{ units }}</td></tr></tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

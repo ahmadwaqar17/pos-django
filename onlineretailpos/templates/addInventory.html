@@ -5,7 +5,7 @@ Add Inventory | {{ brand_name }}
 {% endblock %}
 
 {% block nav-item %}
-<div class="mb-0 font-weight-bold  h5 text-gray-500 text-uppercase p-3 "> Add Inventory </div>
+<div class="mb-0 font-weight-bold  h5 text-gray-500 text-uppercase p-3 "> Receive Stock{% if active_store %} · <span class="text-primary">{{ active_store.name }}</span>{% endif %}</div>
 {% endblock %}
 
 {% block content %}
@@ -26,26 +26,26 @@ Add Inventory | {{ brand_name }}
             {% endif%}
         </div>
         <div class="row">
-            {% if p_qty %}
+            {% if received %}
             <div class="card shadow mt-5 mb-5">
                 <div class="h5 text-danger m-3"> **Please do not refresh this page, as it would add quantity again to same product</div>
                 <div class="card-header p-3">
-                    <h6 class="m-2 font-weight-bold text-success h3">Inventory Quantity Updated - {{ obj.barcode }}</h6>
+                    <h6 class="m-2 font-weight-bold text-success h3">Stock received at {{ active_store.name }} - {{ obj.barcode }}</h6>
                 </div>
                 <div class="card-body table-responsive ">
                     <table class="table table-bordered h6 text-dark" >
                         <tbody >
                             <tr height="50px"  >
-                                <td style="font-weight:bold;vertical-align: middle;">Previous Inventory Qty</td>
+                                <td style="font-weight:bold;vertical-align: middle;">Previous stock at this branch</td>
                                 <td style="vertical-align: middle;">{{p_qty}}</td>
                             </tr>
                             <tr height="50px" >
-                                <td style="font-weight:bold;vertical-align: middle;">Added Inventory Qty</td>
+                                <td style="font-weight:bold;vertical-align: middle;">Received</td>
                                 <td style="vertical-align: middle;">{{n_qty}}</td>
                             </tr>
                             <tr height="75px" >
-                                <td class="h4" style="font-weight:bold;vertical-align: middle;">Total Current Inventory Qty</td>
-                                <td class="h4" style="vertical-align: middle;">{{p_qty|add:n_qty}}</td>
+                                <td class="h4" style="font-weight:bold;vertical-align: middle;">Current stock at this branch</td>
+                                <td class="h4" style="vertical-align: middle;">{{ new_qty }}</td>
                             </tr>
                         </tbody>
                     </table>

@@ -105,7 +105,17 @@ Product Information | {{ brand_name }}
             <table class="table mb-0 pl-detail">
                 <tbody>
                     <tr><th>Department</th><td>{{ obj.department.department_name }}</td></tr>
-                    <tr><th>In Stock</th><td>{{ obj.qty }}</td></tr>
+                    <tr><th>In stock{% if active_store %} at {{ active_store.name }}{% endif %}</th>
+                        <td class="font-weight-bold {% if obj.qty <= 0 %}text-danger{% endif %}">{{ obj.qty }}</td></tr>
+                    {% if stock_by_branch|length > 1 or stock_by_branch and stock_by_branch.0.store != active_store %}
+                    <tr><th>Other locations</th><td>
+                        {% for row in stock_by_branch %}{% if row.store != active_store %}
+                        <span class="badge badge-light border mr-1 mb-1" style="font-size:.85rem">
+                            {% if row.store.is_warehouse %}<i class="fas fa-warehouse mr-1 text-gray-500"></i>{% else %}<i class="fas fa-store mr-1 text-gray-500"></i>{% endif %}{{ row.store.name }}: <strong class="{% if row.qty <= 0 %}text-danger{% endif %}">{{ row.qty }}</strong>
+                        </span>
+                        {% endif %}{% endfor %}
+                    </td></tr>
+                    {% endif %}
                     <tr><th>Tax Category</th><td>{{ obj.tax_category.tax_category }} ({{ obj.tax_category.tax_percentage|floatformat:"-3" }}%)</td></tr>
                     <tr><th>Deposit Category</th><td>{{ obj.deposit_category.deposit_category }} ({{ obj.deposit_category.deposit_value|floatformat:2 }})</td></tr>
                     {% if obj.product_desc %}<tr><th>Description</th><td>{{ obj.product_desc }}</td></tr>{% endif %}
